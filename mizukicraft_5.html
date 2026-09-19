@@ -1,0 +1,4422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mizukicraft</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#0b0e12; }
+  body { font-family:"Segoe UI","Yu Gothic UI","Hiragino Kaku Gothic ProN",sans-serif; color:#fff;
+         user-select:none; -webkit-user-select:none; }
+  canvas#gl { display:block; width:100%; height:100%; }
+
+  #crosshair {
+    position:fixed; left:50%; top:50%; width:22px; height:22px;
+    transform:translate(-50%,-50%); pointer-events:none; opacity:.9; display:none;
+  }
+  #crosshair::before, #crosshair::after {
+    content:""; position:absolute; background:#fff; box-shadow:0 0 0 1px rgba(0,0,0,.55);
+  }
+  #crosshair::before { left:50%; top:0; width:2px; height:100%; margin-left:-1px; }
+  #crosshair::after  { top:50%; left:0; height:2px; width:100%; margin-top:-1px; }
+
+  #hotbar {
+    position:fixed; left:50%; bottom:16px; transform:translateX(-50%);
+    display:none; gap:4px; padding:5px; border-radius:9px;
+    background:rgba(10,12,16,.55); border:1px solid rgba(255,255,255,.12);
+  }
+  .slot {
+    width:46px; height:46px; border-radius:6px; position:relative; cursor:pointer;
+    border:2px solid rgba(255,255,255,.14); background:rgba(255,255,255,.05);
+  }
+  .slot.active { border-color:#fff; background:rgba(255,255,255,.2); }
+  .slot i, .cell i { position:absolute; top:1px; left:3px; font-style:normal; font-size:9px;
+            opacity:.55; text-shadow:0 1px 2px #000; }
+  .icon { width:30px; height:30px; position:absolute; top:50%; left:50%;
+          transform:translate(-50%,-50%); image-rendering:pixelated; }
+  .cnt { position:absolute; right:3px; bottom:0; font-size:11px; font-weight:700;
+         text-shadow:1px 1px 0 #000, -1px 1px 0 #000; }
+
+  #hud { position:fixed; left:12px; top:52px; font-size:12px; line-height:1.6; white-space:pre;
+         text-shadow:0 1px 3px rgba(0,0,0,.9); opacity:.8; display:none;
+         font-variant-numeric:tabular-nums; }
+  #biome {
+    position:fixed; left:12px; top:12px; padding:6px 13px; border-radius:8px;
+    background:rgba(10,12,16,.58); border:1px solid rgba(255,255,255,.14);
+    font-size:14px; font-weight:600; letter-spacing:.03em;
+    text-shadow:0 1px 3px rgba(0,0,0,.9); display:none;
+  }
+  #itemName {
+    position:fixed; left:50%; bottom:108px; transform:translateX(-50%); font-size:13px;
+    text-shadow:0 1px 3px #000; opacity:0; transition:opacity .25s; pointer-events:none;
+  }
+  #mineBar {
+    position:fixed; left:50%; top:calc(50% + 26px); transform:translateX(-50%);
+    width:130px; height:7px; border-radius:4px; display:none; overflow:hidden;
+    background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.3); pointer-events:none;
+  }
+  #mineBar i { display:block; height:100%; width:0%; background:#eaeaea; }
+  #hearts {
+    position:fixed; left:50%; bottom:78px; transform:translateX(-50%);
+    display:none; gap:2px; pointer-events:none;
+  }
+  #hearts img { width:18px; height:18px; image-rendering:pixelated;
+                filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
+  #damage {
+    position:fixed; inset:0; pointer-events:none; z-index:9; opacity:0;
+    transition:opacity .18s ease-out;
+    background:radial-gradient(120% 100% at 50% 50%, rgba(150,0,0,0) 35%, rgba(170,10,10,.75) 100%);
+  }
+
+  #overlay {
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(120% 120% at 50% 30%, rgba(24,34,48,.82), rgba(6,8,11,.94));
+    cursor:pointer; z-index:10;
+  }
+  #panel { text-align:center; max-width:580px; padding:32px 40px;
+           border:1px solid rgba(255,255,255,.12); border-radius:14px; background:rgba(14,18,24,.6); }
+  #panel h1 { font-size:32px; letter-spacing:.06em; margin-bottom:6px; }
+  #panel .sub { font-size:13px; opacity:.65; margin-bottom:20px; }
+  #panel .cta { display:inline-block; padding:11px 26px; border-radius:8px; font-size:15px;
+                font-weight:600; background:#5a9c43; border:1px solid #6fbb53;
+                box-shadow:0 4px 0 #3f6f2f; margin-bottom:22px; }
+  #keys { display:grid; grid-template-columns:auto 1fr; gap:6px 16px; font-size:13px; text-align:left; }
+  #keys b { font-weight:600; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16);
+            border-radius:5px; padding:2px 8px; text-align:center; white-space:nowrap; font-size:12px; }
+  #keys span { opacity:.8; align-self:center; }
+
+  #inv { position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+         background:rgba(0,0,0,.55); z-index:14; }
+  #invPanel { padding:20px 22px 18px; border-radius:12px; background:rgba(20,24,30,.97);
+              border:1px solid rgba(255,255,255,.16); box-shadow:0 24px 60px rgba(0,0,0,.5); }
+  #invPanel h2 { font-size:14px; font-weight:600; opacity:.85; margin-bottom:12px; letter-spacing:.04em; }
+  .grid { display:grid; grid-template-columns:repeat(9, 46px); gap:4px; }
+  .cell { width:46px; height:46px; border-radius:6px; position:relative; cursor:pointer;
+          background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); }
+  .cell:hover { background:rgba(255,255,255,.15); }
+  .cell.hot { border-color:rgba(255,255,255,.3); background:rgba(255,255,255,.09); }
+  .divider { height:12px; }
+  .craftRow { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+  .grid2 { display:grid; grid-template-columns:repeat(2, 46px); gap:4px; }
+  .arrow { font-size:20px; opacity:.55; }
+  .cell.out { border-color:rgba(255,255,255,.35); background:rgba(255,255,255,.12); }
+  .craftLabel { font-size:11px; opacity:.5; margin-bottom:6px; }
+  #genderSel, #modeSel { display:flex; gap:10px; justify-content:center; margin-bottom:18px; }
+  .gsel { font:inherit; font-size:14px; padding:8px 22px; border-radius:8px; cursor:pointer;
+          color:#fff; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.2); }
+  .gsel.active { background:rgba(255,255,255,.22); border-color:#fff; font-weight:700; }
+  #armorRow { display:flex; gap:4px; margin-bottom:8px; }
+  #invHint { margin-top:12px; font-size:11px; opacity:.5; }
+  #held { position:fixed; width:34px; height:34px; z-index:30; display:none;
+          pointer-events:none; transform:translate(-50%,-50%); }
+  #held img { width:34px; height:34px; image-rendering:pixelated; }
+  #held b { position:absolute; right:-2px; bottom:-4px; font-size:12px;
+            text-shadow:1px 1px 0 #000, -1px 1px 0 #000; }
+
+  #err { position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+         padding:40px; background:#12161c; z-index:20; text-align:center; font-size:15px; line-height:1.8; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="crosshair"></div>
+<div id="mineBar"><i></i></div>
+<div id="biome"></div>
+<div id="hud"></div>
+<div id="itemName"></div>
+<div id="hearts"></div>
+<div id="hotbar"></div>
+<div id="damage"></div>
+
+<div id="inv">
+  <div id="invPanel">
+    <h2 id="invTitle">インベントリ</h2>
+    <div class="craftLabel">クラフト（原木 1 個 → 木材 4 個 ／ 木材を縦に 2 つ → 棒 4 本）</div>
+    <div class="craftRow">
+      <div class="grid2" id="craftGrid"></div>
+      <div class="arrow">→</div>
+      <div class="cell out" id="craftOut"></div>
+    </div>
+    <div class="craftLabel">防具（革でクラフト。それぞれ防御力 +2　※ダメージを 1 につき 4% カット）</div>
+    <div id="armorRow"></div>
+    <div id="chestWrap" style="display:none">
+      <div class="grid" id="invChest"></div>
+      <div class="divider"></div>
+    </div>
+    <div class="grid" id="invMain"></div>
+    <div class="divider"></div>
+    <div class="grid" id="invHot"></div>
+    <div id="invHint">左クリック：スタックを持つ／置く　右クリック：半分だけ持つ／1個だけ置く　E か Esc で閉じる</div>
+  </div>
+</div>
+<div id="held"></div>
+
+<div id="overlay">
+  <div id="panel">
+    <h1>mizukicraft</h1>
+    <div class="sub">平原と森　—　昼と夜は 5 分で一周。夜はゾンビが出ます</div>
+    <div id="genderSel">
+      <button class="gsel active" data-g="0">男</button>
+      <button class="gsel" data-g="1">女</button>
+    </div>
+    <div id="modeSel">
+      <button class="gsel active" data-m="survival">サバイバル</button>
+      <button class="gsel" data-m="creative">クリエイティブ</button>
+    </div>
+    <div class="cta">クリックして開始</div>
+    <div id="keys">
+      <b>W / S</b><span>前進 / 後退</span>
+      <b>A / D</b><span>左右に移動</span>
+      <b>Ctrl</b><span>ダッシュ（移動速度 30% アップ）</span>
+      <b>マウス</b><span>視点</span>
+      <b>Space</b><span>ジャンプ（水中では浮上／クリエイティブは2回押しで飛行）</span>
+      <b>左クリック</b><span>長押しでブロックを壊す / 生き物を攻撃（素手 2・棒 4・剣 17）</span>
+      <b>右クリック</b><span>持っているブロックを置く</span>
+      <b>E</b><span>インベントリ</span>
+      <b>1〜9 / ホイール</b><span>ホットバーの選択</span>
+      <b>V</b><span>視点を切り替える</span>
+      <b>G</b><span>ゲームモード切り替え</span>
+      <b>Esc</b><span>ポーズ</span>
+    </div>
+  </div>
+</div>
+
+<div id="err"></div>
+
+<script>
+"use strict";
+(function () {
+
+/* ============================================================
+   0. 定数
+   ============================================================ */
+const CH_X = 16, CH_Z = 16, CH_Y = 48;
+const RENDER_DIST = 5;
+const SEA_LEVEL = 28;
+const WATER_LEVEL = 26;          // この高さまで窪地が水で満たされる
+
+const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, BEDROCK = 4,
+      TALLGRASS = 5, POPPY = 6, WATER = 7, SEAGRASS = 8, CHEST = 9,
+      CORNFLOWER = 10, DANDELION = 11, LOG = 12, LEAVES = 13, PLANKS = 14,
+      TABLE = 15, SAND = 16, CACTUS = 17, COAL_ORE = 18, TORCH = 19, KELP = 20;
+const ITEM_SWORD = 100;          // 100 番からは置けない「道具」
+const ITEM_FEATHER = 101, ITEM_PORK = 102, ITEM_STICK = 103, ITEM_APPLE = 104, ITEM_LEATHER = 105;
+const ITEM_HELMET = 106, ITEM_CHESTPLATE = 107, ITEM_LEGGINGS = 108, ITEM_BOOTS = 109;
+const ITEM_STRING = 110, ITEM_BOW = 111, ITEM_ARROW = 112;
+const ITEM_EGG_PIG = 113, ITEM_EGG_COW = 114, ITEM_EGG_CHICKEN = 115,
+      ITEM_EGG_ZOMBIE = 116, ITEM_EGG_SPIDER = 117, ITEM_EGG_GOLDFISH = 118;
+const ITEM_COAL = 119, ITEM_SQUID = 120;
+const ITEM_EGG_SQUID = 121, ITEM_EGG_SHARK = 122;
+const ITEM_PICKAXE = 123, ITEM_AXE = 124, ITEM_WOOD_SWORD = 125;
+const TORCH_LIGHT_RADIUS = 16;   // 松明の周りにモンスターが湧かなくなる半径
+const SQUID_HEAL = 2;            // イカを食べたときの回復量
+const ARMOR_DEFENSE = 2;         // 防具 1 部位につき防御力 +2
+const DEFENSE_CUT_PER_POINT = 0.04;   // 防御力 1 につきダメージ 4% カット
+const STICK_DAMAGE = 2;          // 棒を持つと攻撃力 +2
+const APPLE_HEAL = 5;            // リンゴで回復する体力
+const SWORD_DAMAGE = 15;         // 素手のダメージに上乗せ
+const SWORD_MAX_USES = 500;      // この回数攻撃すると剣が壊れる
+const PICKAXE_DAMAGE = 3;        // 木のツルハシの攻撃力
+const AXE_DAMAGE = 10;           // 斧の攻撃力
+const WOOD_SWORD_DAMAGE = 7;     // 木の剣の攻撃力
+const PORK_BOOST_SEC = 15;       // 豚肉を食べている間
+const PORK_BOOST_MUL = 4;        // 回復の速さ
+const BOW_MIN_DMG = 2, BOW_MAX_DMG = 20, BOW_MAX_CHARGE_SEC = 2.0;  // 弓：引き絞り 0〜2秒で 2〜20 ダメージ
+const ARROW_SPEED = 26, ARROW_GRAVITY = 15;
+// 起動するたびに地形が変わる
+const WORLD_SEED = (Math.random() * 2147483647) | 0;
+
+const T_GRASS_TOP = 0, T_GRASS_SIDE = 1, T_DIRT = 2, T_STONE = 3, T_BEDROCK = 4,
+      T_TALLGRASS = 5, T_POPPY = 6, T_WATER = 7, T_PIG = 8, T_PIG_FACE = 9,
+      T_CHICKEN = 10, T_CHICKEN_FACE = 11, T_ORANGE = 12, T_RED = 13,
+      T_SUN = 14, T_MOON = 15, T_CLOUD = 16, T_ZOMBIE = 17;   // T_ZOMBIE から 4 枚 x 3 パターン
+const T_SEAGRASS = T_ZOMBIE + 12, T_FISH = T_ZOMBIE + 13,
+      T_FISH_EYE_R = T_ZOMBIE + 14, T_FISH_FIN = T_ZOMBIE + 15,
+      T_FISH_EYE_L = T_ZOMBIE + 16,
+      T_CHEST_SIDE = T_ZOMBIE + 17, T_CHEST_TOP = T_ZOMBIE + 18,
+      T_CHEST_FRONT = T_ZOMBIE + 19, T_CORNFLOWER = T_ZOMBIE + 20,
+      T_DANDELION = T_ZOMBIE + 21, T_SWORD = T_ZOMBIE + 22,
+      T_FEATHER = T_ZOMBIE + 23, T_PORK = T_ZOMBIE + 24,
+      T_COW = T_ZOMBIE + 25, T_COW_FACE = T_ZOMBIE + 26,
+      T_COW_HORN = T_ZOMBIE + 27, T_COW_UDDER = T_ZOMBIE + 28,
+      T_LOG_SIDE = T_ZOMBIE + 29, T_LOG_TOP = T_ZOMBIE + 30,
+      T_LEAVES = T_ZOMBIE + 31, T_PLANKS = T_ZOMBIE + 32,
+      T_STICK = T_ZOMBIE + 33, T_APPLE = T_ZOMBIE + 34,
+      T_TABLE_TOP = T_ZOMBIE + 36, T_TABLE_SIDE = T_ZOMBIE + 37, T_TABLE_FRONT = T_ZOMBIE + 38,
+      T_EMPTY = T_ZOMBIE + 35,
+      T_PLAYER = T_ZOMBIE + 39;      // ここから 5 枚 x 2 人ぶん（肌/顔/服/ズボン/髪）
+const T_SAND = T_PLAYER + 13, T_CACTUS_SIDE = T_PLAYER + 14, T_CACTUS_TOP = T_PLAYER + 15,
+      T_SPIDER = T_PLAYER + 16, T_SPIDER_EYE = T_PLAYER + 17,
+      T_PIG_SNOUT = T_PLAYER + 18, T_COW_SNOUT = T_PLAYER + 19, T_LEATHER = T_PLAYER + 20,
+      T_ARMOR_HELMET = T_PLAYER + 21, T_ARMOR_CHEST = T_PLAYER + 22,
+      T_ARMOR_LEGS = T_PLAYER + 23, T_ARMOR_BOOTS = T_PLAYER + 24,
+      T_STRING = T_PLAYER + 25, T_BOW = T_PLAYER + 26, T_ARROW = T_PLAYER + 27,
+      T_EGG_PIG = T_PLAYER + 28, T_EGG_COW = T_PLAYER + 29, T_EGG_CHICKEN = T_PLAYER + 30,
+      T_EGG_ZOMBIE = T_PLAYER + 31, T_EGG_SPIDER = T_PLAYER + 32, T_EGG_GOLDFISH = T_PLAYER + 33,
+      T_COAL_ORE = T_PLAYER + 34, T_TORCH = T_PLAYER + 35,
+      T_SQUID = T_PLAYER + 36, T_SHARK = T_PLAYER + 37, T_SHARK_BELLY = T_PLAYER + 38,
+      T_SHARK_FIN = T_PLAYER + 39,
+      T_EGG_SQUID = T_PLAYER + 40, T_EGG_SHARK = T_PLAYER + 41,
+      T_SHARK_EYE = T_PLAYER + 42, T_SHARK_MOUTH = T_PLAYER + 43, T_SQUID_FIN = T_PLAYER + 44,
+      T_AXE = T_PLAYER + 45, T_PICKAXE = T_PLAYER + 46, T_WOOD_SWORD = T_PLAYER + 47,
+      T_BOOT = T_PLAYER + 48, T_LEAF_PARTICLE = T_PLAYER + 49,
+      T_PIG_FACE_BLINK = T_PLAYER + 50, T_COW_FACE_BLINK = T_PLAYER + 51,
+      T_PLAYER_FACE_BLINK_M = T_PLAYER + 52, T_PLAYER_FACE_BLINK_F = T_PLAYER + 53,
+      T_KELP = T_PLAYER + 54;
+const NLAYERS = T_PLAYER + 55;
+
+const DAY_LENGTH = 300;          // 朝から夜まで一周 5 分
+const CLOUD_Y = 44;              // 雲の高さ
+const CLOUD_CELL = 10;           // 雲ひとマスの大きさ（ブロック）
+const CLOUD_GRID = 56;           // 雲マップの一辺（マス）
+const CLOUD_SPAN = CLOUD_CELL * CLOUD_GRID;
+
+const BLOCK_TEX = {
+  [GRASS]:   [T_GRASS_SIDE, T_GRASS_SIDE, T_GRASS_TOP, T_DIRT, T_GRASS_SIDE, T_GRASS_SIDE],
+  [DIRT]:    [T_DIRT, T_DIRT, T_DIRT, T_DIRT, T_DIRT, T_DIRT],
+  [STONE]:   [T_STONE, T_STONE, T_STONE, T_STONE, T_STONE, T_STONE],
+  [BEDROCK]: [T_BEDROCK, T_BEDROCK, T_BEDROCK, T_BEDROCK, T_BEDROCK, T_BEDROCK],
+  [CHEST]:   [T_CHEST_SIDE, T_CHEST_SIDE, T_CHEST_TOP, T_CHEST_TOP, T_CHEST_FRONT, T_CHEST_FRONT],
+  [LOG]:     [T_LOG_SIDE, T_LOG_SIDE, T_LOG_TOP, T_LOG_TOP, T_LOG_SIDE, T_LOG_SIDE],
+  [LEAVES]:  [T_LEAVES, T_LEAVES, T_LEAVES, T_LEAVES, T_LEAVES, T_LEAVES],
+  [PLANKS]:  [T_PLANKS, T_PLANKS, T_PLANKS, T_PLANKS, T_PLANKS, T_PLANKS],
+  [TABLE]:   [T_TABLE_SIDE, T_TABLE_SIDE, T_TABLE_TOP, T_PLANKS, T_TABLE_FRONT, T_TABLE_FRONT],
+  [SAND]:    [T_SAND, T_SAND, T_SAND, T_SAND, T_SAND, T_SAND],
+  [CACTUS]:  [T_CACTUS_SIDE, T_CACTUS_SIDE, T_CACTUS_TOP, T_CACTUS_TOP, T_CACTUS_SIDE, T_CACTUS_SIDE],
+  [COAL_ORE]:[T_COAL_ORE, T_COAL_ORE, T_COAL_ORE, T_COAL_ORE, T_COAL_ORE, T_COAL_ORE],
+};
+const ITEM_TEX = { [ITEM_SWORD]: T_SWORD, [ITEM_FEATHER]: T_FEATHER, [ITEM_PORK]: T_PORK,
+                   [ITEM_STICK]: T_STICK, [ITEM_APPLE]: T_APPLE, [ITEM_LEATHER]: T_LEATHER,
+                   [ITEM_HELMET]: T_ARMOR_HELMET, [ITEM_CHESTPLATE]: T_ARMOR_CHEST,
+                   [ITEM_LEGGINGS]: T_ARMOR_LEGS, [ITEM_BOOTS]: T_ARMOR_BOOTS,
+                   [ITEM_STRING]: T_STRING, [ITEM_BOW]: T_BOW, [ITEM_ARROW]: T_ARROW,
+                   [ITEM_EGG_PIG]: T_EGG_PIG, [ITEM_EGG_COW]: T_EGG_COW,
+                   [ITEM_EGG_CHICKEN]: T_EGG_CHICKEN, [ITEM_EGG_ZOMBIE]: T_EGG_ZOMBIE,
+                   [ITEM_EGG_SPIDER]: T_EGG_SPIDER, [ITEM_EGG_GOLDFISH]: T_EGG_GOLDFISH,
+                   [ITEM_COAL]: T_COAL_ORE, [ITEM_SQUID]: T_SQUID,
+                   [ITEM_EGG_SQUID]: T_EGG_SQUID, [ITEM_EGG_SHARK]: T_EGG_SHARK,
+                   [ITEM_PICKAXE]: T_PICKAXE, [ITEM_AXE]: T_AXE, [ITEM_WOOD_SWORD]: T_WOOD_SWORD };
+const PLANT_TEX = { [TALLGRASS]: T_TALLGRASS, [POPPY]: T_POPPY, [SEAGRASS]: T_SEAGRASS,
+                    [CORNFLOWER]: T_CORNFLOWER, [DANDELION]: T_DANDELION, [TORCH]: T_TORCH,
+                    [KELP]: T_KELP };
+const BLOCK_NAME = {
+  [GRASS]:"草ブロック", [DIRT]:"土", [STONE]:"石", [BEDROCK]:"岩盤",
+  [TALLGRASS]:"草", [POPPY]:"ポピー", [WATER]:"水", [SEAGRASS]:"水草", [KELP]:"昆布",
+  [CHEST]:"宝箱", [CORNFLOWER]:"青い花", [DANDELION]:"黄色い花",
+  [ITEM_SWORD]:"鉄の剣", [ITEM_FEATHER]:"羽根", [ITEM_PORK]:"豚肉",
+  [LOG]:"原木", [LEAVES]:"葉", [PLANKS]:"木材", [ITEM_STICK]:"棒", [ITEM_APPLE]:"リンゴ",
+  [TABLE]:"作業台", [SAND]:"砂", [CACTUS]:"サボテン", [ITEM_LEATHER]:"革",
+  [ITEM_HELMET]:"革のヘルメット", [ITEM_CHESTPLATE]:"革のチェストプレート",
+  [ITEM_LEGGINGS]:"革のレギンス", [ITEM_BOOTS]:"革のブーツ",
+  [ITEM_STRING]:"糸", [ITEM_BOW]:"弓", [ITEM_ARROW]:"矢",
+  [ITEM_EGG_PIG]:"ブタのスポーンエッグ", [ITEM_EGG_COW]:"牛のスポーンエッグ",
+  [ITEM_EGG_CHICKEN]:"ニワトリのスポーンエッグ", [ITEM_EGG_ZOMBIE]:"ゾンビのスポーンエッグ",
+  [ITEM_EGG_SPIDER]:"クモのスポーンエッグ", [ITEM_EGG_GOLDFISH]:"金魚のスポーンエッグ",
+  [COAL_ORE]:"石炭鉱石", [ITEM_COAL]:"石炭", [TORCH]:"松明", [ITEM_SQUID]:"イカ",
+  [ITEM_EGG_SQUID]:"イカのスポーンエッグ", [ITEM_EGG_SHARK]:"サメのスポーンエッグ",
+  [ITEM_PICKAXE]:"木のツルハシ", [ITEM_AXE]:"斧", [ITEM_WOOD_SWORD]:"木の剣",
+};
+
+// スポーンエッグ → 対応するモブの種類
+const SPAWN_EGG_MOB = {
+  [ITEM_EGG_PIG]: "pig", [ITEM_EGG_COW]: "cow", [ITEM_EGG_CHICKEN]: "chicken",
+  [ITEM_EGG_ZOMBIE]: "zombie", [ITEM_EGG_SPIDER]: "spider", [ITEM_EGG_GOLDFISH]: "fish",
+  [ITEM_EGG_SQUID]: "squid", [ITEM_EGG_SHARK]: "shark",
+};
+const isPlant = (b) => b === TALLGRASS || b === POPPY || b === SEAGRASS
+                    || b === CORNFLOWER || b === DANDELION || b === TORCH || b === KELP;
+const isItem = (b) => b >= 100;
+const isWater = (b) => b === WATER;
+// 水と植物はすり抜けられる（プレイヤーもモブも）
+const isSolid = (b) => b !== AIR && !isPlant(b) && !isWater(b);
+const STACK_MAX = 64;
+
+const ATTACK_DAMAGE = 2;         // 1 回の攻撃で与えるダメージ
+// ブロックを壊すのにかかる秒数（0 は一瞬で壊れる）
+const BREAK_TIME = {
+  [GRASS]: 3, [DIRT]: 3, [STONE]: 10, [CHEST]: 2,
+  [LOG]: 4, [PLANKS]: 3, [LEAVES]: 0.4, [TABLE]: 3,
+  [TALLGRASS]: 0, [POPPY]: 0, [CORNFLOWER]: 0, [DANDELION]: 0, [SEAGRASS]: 0, [KELP]: 0,
+  [SAND]: 1.5, [CACTUS]: 0.5, [COAL_ORE]: 9, [TORCH]: 0,
+};
+const breakTime = (b) => (BREAK_TIME[b] !== undefined ? BREAK_TIME[b] : 3);
+// ツルハシは石系、斧は木系のブロックを持っているとき採掘速度が速くなる
+const PICKAXE_BLOCKS = new Set([STONE, COAL_ORE]);
+const AXE_BLOCKS = new Set([LOG, PLANKS, TABLE]);
+const TOOL_MINE_SPEED = 3;       // 対応する道具を持っているときの採掘速度の倍率
+function miningSpeedMul(itemId, block) {
+  if (itemId === ITEM_PICKAXE && PICKAXE_BLOCKS.has(block)) return TOOL_MINE_SPEED;
+  if (itemId === ITEM_AXE && AXE_BLOCKS.has(block)) return TOOL_MINE_SPEED;
+  return 1;
+}
+const SKY = [0.58, 0.74, 0.93];
+const SKY_TOP_DAY   = [0.31, 0.53, 0.92];
+const SKY_HOR_DAY   = [0.74, 0.86, 0.97];
+const SKY_TOP_NIGHT = [0.012, 0.018, 0.055];
+const SKY_HOR_NIGHT = [0.055, 0.075, 0.155];
+const SKY_GLOW      = [1.00, 0.52, 0.22];
+const UNDERWATER_FOG = [0.12, 0.30, 0.48];
+
+/* ============================================================
+   1. WebGL
+   ============================================================ */
+const canvas = document.getElementById("gl");
+const gl = canvas.getContext("webgl2", { antialias:true, alpha:false });
+if (!gl) {
+  const e = document.getElementById("err");
+  e.style.display = "flex";
+  e.innerHTML = "このブラウザは WebGL2 に対応していません。<br>Chrome / Edge / Firefox の最新版でお試しください。";
+  return;
+}
+function compile(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function program(vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+
+const MAX_LIGHTS = 6;
+const lightBuf = new Float32Array(MAX_LIGHTS * 3);
+const lightCand = [];
+const progTerrain = program(`#version 300 es
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec2 aUV;
+layout(location=2) in float aLayer;
+layout(location=3) in float aShade;
+uniform mat4 uProj, uView, uModel;
+out vec2 vUV; out float vLayer; out float vShade; out float vDist; out vec3 vWorld;
+void main(){
+  vec4 world = uModel * vec4(aPos, 1.0);
+  vWorld = world.xyz;
+  vec4 eye = uView * world;
+  vDist = length(eye.xyz);
+  gl_Position = uProj * eye;
+  vUV = aUV; vLayer = aLayer; vShade = aShade;
+}`, `#version 300 es
+precision highp float;
+precision highp sampler2DArray;
+in vec2 vUV; in float vLayer; in float vShade; in float vDist; in vec3 vWorld;
+uniform sampler2DArray uTex;
+uniform vec3 uFogColor, uTint;
+uniform float uFogNear, uFogFar, uAlpha;
+uniform vec3 uLightPos[${MAX_LIGHTS}];
+uniform vec3 uLightColor;
+uniform int uLightCount;
+out vec4 outColor;
+void main(){
+  vec4 c = texture(uTex, vec3(vUV, vLayer));
+  if (c.a < 0.35) discard;
+  c.rgb *= vShade * uTint;
+  vec3 glow = vec3(0.0);
+  for (int i = 0; i < ${MAX_LIGHTS}; i++) {
+    if (i >= uLightCount) break;
+    float d = length(vWorld - uLightPos[i]);
+    float att = clamp(1.0 - d / 16.0, 0.0, 1.0);
+    glow += uLightColor * (att * att);
+  }
+  c.rgb += glow;
+  float f = clamp((vDist - uFogNear) / (uFogFar - uFogNear), 0.0, 1.0);
+  outColor = vec4(mix(c.rgb, uFogColor, f), uAlpha);
+}`);
+
+const progLine = program(`#version 300 es
+layout(location=0) in vec3 aPos;
+uniform mat4 uProj, uView; uniform vec3 uOffset;
+void main(){ gl_Position = uProj * uView * vec4(aPos + uOffset, 1.0); }`,
+`#version 300 es
+precision highp float;
+out vec4 outColor;
+void main(){ outColor = vec4(0.05, 0.05, 0.06, 1.0); }`);
+
+const progSky = program(`#version 300 es
+layout(location=0) in vec2 aPos;
+uniform vec3 uRight, uUp, uFwd;
+uniform float uTanY, uAspect;
+out vec3 vDir;
+void main(){
+  vDir = uFwd + uRight * (aPos.x * uTanY * uAspect) + uUp * (aPos.y * uTanY);
+  gl_Position = vec4(aPos, 0.9999, 1.0);
+}`, `#version 300 es
+precision highp float;
+in vec3 vDir;
+uniform vec3 uTop, uHorizon, uGlow, uSunDir;
+uniform float uGlowAmt;
+out vec4 outColor;
+void main(){
+  vec3 d = normalize(vDir);
+  vec3 c = mix(uHorizon, uTop, smoothstep(0.0, 0.55, d.y));
+  c = mix(c, uHorizon * 0.88, smoothstep(0.0, -0.3, d.y));
+  float s = max(0.0, dot(d, uSunDir));
+  c = mix(c, uGlow, uGlowAmt * pow(s, 5.0));
+  outColor = vec4(c, 1.0);
+}`);
+const US = {
+  right: gl.getUniformLocation(progSky, "uRight"),
+  up: gl.getUniformLocation(progSky, "uUp"),
+  fwd: gl.getUniformLocation(progSky, "uFwd"),
+  tanY: gl.getUniformLocation(progSky, "uTanY"),
+  aspect: gl.getUniformLocation(progSky, "uAspect"),
+  top: gl.getUniformLocation(progSky, "uTop"),
+  horizon: gl.getUniformLocation(progSky, "uHorizon"),
+  glow: gl.getUniformLocation(progSky, "uGlow"),
+  glowAmt: gl.getUniformLocation(progSky, "uGlowAmt"),
+  sunDir: gl.getUniformLocation(progSky, "uSunDir"),
+};
+const skyQuadVao = gl.createVertexArray();
+{
+  gl.bindVertexArray(skyQuadVao);
+  const b = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, b);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindVertexArray(null);
+}
+
+const U = {
+  proj: gl.getUniformLocation(progTerrain, "uProj"),
+  view: gl.getUniformLocation(progTerrain, "uView"),
+  model: gl.getUniformLocation(progTerrain, "uModel"),
+  tex: gl.getUniformLocation(progTerrain, "uTex"),
+  fogColor: gl.getUniformLocation(progTerrain, "uFogColor"),
+  fogNear: gl.getUniformLocation(progTerrain, "uFogNear"),
+  fogFar: gl.getUniformLocation(progTerrain, "uFogFar"),
+  alpha: gl.getUniformLocation(progTerrain, "uAlpha"),
+  tint: gl.getUniformLocation(progTerrain, "uTint"),
+  lightPos: gl.getUniformLocation(progTerrain, "uLightPos[0]"),
+  lightColor: gl.getUniformLocation(progTerrain, "uLightColor"),
+  lightCount: gl.getUniformLocation(progTerrain, "uLightCount"),
+};
+const UL = {
+  proj: gl.getUniformLocation(progLine, "uProj"),
+  view: gl.getUniformLocation(progLine, "uView"),
+  offset: gl.getUniformLocation(progLine, "uOffset"),
+};
+
+/* ============================================================
+   2. 行列
+   ============================================================ */
+function mat4() { return new Float32Array(16); }
+function perspective(out, fovy, aspect, near, far) {
+  const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+  out.fill(0);
+  out[0] = f / aspect; out[5] = f; out[10] = (far + near) * nf;
+  out[11] = -1; out[14] = 2 * far * near * nf;
+  return out;
+}
+function viewMatrix(out, ex, ey, ez, yaw, pitch) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const fx = -sy * cp, fy = sp, fz = -cy * cp;
+  const rx = cy,       ry = 0,  rz = -sy;
+  const ux = sy * sp,  uy = cp, uz = cy * sp;
+  out[0]=rx; out[4]=ry; out[8]=rz;   out[12]=-(rx*ex + ry*ey + rz*ez);
+  out[1]=ux; out[5]=uy; out[9]=uz;   out[13]=-(ux*ex + uy*ey + uz*ez);
+  out[2]=-fx;out[6]=-fy;out[10]=-fz; out[14]=  (fx*ex + fy*ey + fz*ez);
+  out[3]=0;  out[7]=0;  out[11]=0;   out[15]=1;
+  return out;
+}
+function translation(out, x, y, z) {
+  out.fill(0); out[0] = out[5] = out[10] = out[15] = 1;
+  out[12] = x; out[13] = y; out[14] = z; return out;
+}
+function trsY(out, x, y, z, angle, s) {       // 平行移動 * Y回転 * 一様スケール
+  const c = Math.cos(angle), si = Math.sin(angle);
+  out[0]=c*s; out[1]=0;  out[2]=-si*s; out[3]=0;
+  out[4]=0;   out[5]=s;  out[6]=0;     out[7]=0;
+  out[8]=si*s;out[9]=0;  out[10]=c*s;  out[11]=0;
+  out[12]=x;  out[13]=y; out[14]=z;    out[15]=1;
+  return out;
+}
+function transRotX(out, px, py, pz, ang) {    // 平行移動 * X回転
+  const c = Math.cos(ang), s = Math.sin(ang);
+  out[0]=1; out[1]=0;  out[2]=0; out[3]=0;
+  out[4]=0; out[5]=c;  out[6]=s; out[7]=0;
+  out[8]=0; out[9]=-s; out[10]=c;out[11]=0;
+  out[12]=px; out[13]=py; out[14]=pz; out[15]=1;
+  return out;
+}
+function transRotY(out, px, py, pz, ang) {    // 平行移動 * Y回転
+  const c = Math.cos(ang), s = Math.sin(ang);
+  out[0]=c; out[1]=0; out[2]=-s; out[3]=0;
+  out[4]=0; out[5]=1; out[6]=0;  out[7]=0;
+  out[8]=s; out[9]=0; out[10]=c; out[11]=0;
+  out[12]=px; out[13]=py; out[14]=pz; out[15]=1;
+  return out;
+}
+function transRotZ(out, px, py, pz, ang) {    // 平行移動 * Z回転
+  const c = Math.cos(ang), s = Math.sin(ang);
+  out[0]=c;  out[1]=s; out[2]=0; out[3]=0;
+  out[4]=-s; out[5]=c; out[6]=0; out[7]=0;
+  out[8]=0;  out[9]=0; out[10]=1;out[11]=0;
+  out[12]=px; out[13]=py; out[14]=pz; out[15]=1;
+  return out;
+}
+// 平行移動 * Y回転(水平に振る) * X回転(持ち上げる) ―― クモの脚などの複合アニメーション用
+function transRotYX(out, px, py, pz, angY, angX) {
+  const cy = Math.cos(angY), sy = Math.sin(angY), cx = Math.cos(angX), sx = Math.sin(angX);
+  out[0]=cy;      out[1]=0;   out[2]=-sy;     out[3]=0;
+  out[4]=sx*sy;   out[5]=cx;  out[6]=sx*cy;   out[7]=0;
+  out[8]=cx*sy;   out[9]=-sx; out[10]=cx*cy;  out[11]=0;
+  out[12]=px; out[13]=py; out[14]=pz; out[15]=1;
+  return out;
+}
+function scaleMat(out, s) {
+  out.fill(0); out[0] = out[5] = out[10] = s; out[15] = 1;
+  return out;
+}
+function mul(out, a, b) {                     // out = a * b
+  for (let i = 0; i < 4; i++) {
+    const a0=a[i], a1=a[i+4], a2=a[i+8], a3=a[i+12];
+    for (let j = 0; j < 4; j++) {
+      out[i + j*4] = a0*b[j*4] + a1*b[j*4+1] + a2*b[j*4+2] + a3*b[j*4+3];
+    }
+  }
+  return out;
+}
+const matProj = mat4(), matView = mat4(), matModel = mat4();
+const mTmpA = mat4(), mTmpB = mat4(), mTmpC = mat4();
+const mD1 = mat4(), mD2 = mat4();
+const mH1 = mat4(), mH2 = mat4(), mH3 = mat4(), mH4 = mat4();
+const MAT_ID = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+
+/* ============================================================
+   3. テクスチャ
+   ============================================================ */
+function rnd(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0;
+    return s / 4294967296;
+  };
+}
+function makeTile(seed, fn) {
+  const px = new Uint8Array(16 * 16 * 4);
+  const r = rnd(seed);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const c = fn(x, y, r);
+    const i = (y * 16 + x) * 4;
+    if (!c) { px[i+3] = 0; continue; }
+    px[i] = c[0]; px[i+1] = c[1]; px[i+2] = c[2]; px[i+3] = 255;
+  }
+  return px;
+}
+function shade(base, amt) {
+  return [ Math.max(0, Math.min(255, base[0] + amt)),
+           Math.max(0, Math.min(255, base[1] + amt)),
+           Math.max(0, Math.min(255, base[2] + amt)) ];
+}
+function artTile(art, palette) {
+  const px = new Uint8Array(16 * 16 * 4);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const c = palette[art[y][x]];
+    if (!c) continue;
+    const i = (y * 16 + x) * 4;
+    px[i] = c[0]; px[i+1] = c[1]; px[i+2] = c[2]; px[i+3] = 255;
+  }
+  return px;
+}
+
+// ワールドのシードに左右されない、テクスチャ専用のハッシュ
+function thash(x, y, s) {
+  let h = Math.imul(x + 1013, 374761393) ^ Math.imul(y + 7919, 668265263) ^ Math.imul(s + 104729, 2246822519);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+// 2x2 のかたまりを基準に、決まった段数の濃淡から 1 つ選ぶ
+// （1 ドットずつバラバラに散らすより、マイクラのドット絵に近い見た目になる）
+function blob(x, y, seed, n, mix) {
+  const m = mix === undefined ? 0.34 : mix;
+  const v = thash(x >> 1, y >> 1, seed) * (1 - m) + thash(x, y, seed + 77) * m;
+  return Math.min(n - 1, (v * n) | 0);
+}
+// 濃淡の配列から色を選ぶタイルを作る
+function shadeTile(seed, shades, extra) {
+  return makeTile(seed, (x, y) => {
+    let c = shades[blob(x, y, seed, shades.length)];
+    if (extra) { const e = extra(x, y, thash(x, y, seed + 911)); if (e) c = e; }
+    return c;
+  });
+}
+
+const GRASS_BASE = [106, 153, 67];
+const DIRT_BASE  = [134, 96,  67];
+const STONE_BASE = [128, 128, 128];
+const PIG_BASE   = [235, 145, 148];
+const HEN_BASE   = [238, 238, 232];
+
+const GRASS_SHADES = [[84,124,52],[96,140,60],[110,156,68],[124,172,78]];
+const DIRT_SHADES  = [[104, 74, 50],[120, 86, 58],[134, 96, 67],[148,110, 78]];
+const STONE_SHADES = [[104,104,104],[118,118,118],[132,132,132],[146,146,146]];
+const LEAF_SHADES  = [[48, 88, 36],[62,110, 46],[76,128, 56],[94,150, 66]];
+const BARK_SHADES  = [[74, 52, 30],[90, 66, 38],[104, 78, 46],[118, 90, 54]];
+const PLANK_SHADES = [[150,114, 66],[166,128, 76],[178,140, 86],[190,152, 96]];
+
+const tiles = [];
+tiles[T_GRASS_TOP] = shadeTile(11, GRASS_SHADES, (x, y, h) => {
+  if (h > 0.94) return [138, 186, 88];          // 明るい株
+  if (h < 0.05) return [ 70, 106, 44];          // 暗い株
+  return null;
+});
+tiles[T_GRASS_SIDE] = makeTile(22, (x, y) => {
+  const edge = 2 + ((thash(x, 3, 22) * 3) | 0) + ((thash(x >> 1, 9, 22) * 2) | 0);  // 2〜6 段
+  if (y < edge) return GRASS_SHADES[blob(x, y, 23, GRASS_SHADES.length)];
+  if (y === edge) return thash(x, y, 24) > 0.45
+    ? GRASS_SHADES[blob(x, y, 23, GRASS_SHADES.length)]
+    : DIRT_SHADES[blob(x, y, 25, DIRT_SHADES.length)];
+  return DIRT_SHADES[blob(x, y, 25, DIRT_SHADES.length)];
+});
+tiles[T_DIRT] = shadeTile(33, DIRT_SHADES, (x, y, h) => (h > 0.96 ? [92, 66, 44] : null));
+tiles[T_STONE] = shadeTile(44, STONE_SHADES, (x, y, h) => {
+  if (h > 0.955) return [86, 86, 86];           // 黒っぽい粒
+  if (h < 0.03) return [158, 158, 158];
+  return null;
+});
+tiles[T_BEDROCK] = shadeTile(55, [[38,38,42],[58,58,62],[78,78,82],[98,98,102]]);
+// ---- 石炭鉱石：石の地に黒い石炭のかたまり ----
+tiles[T_COAL_ORE] = makeTile(56, (x, y) => {
+  const base = STONE_SHADES[blob(x, y, 44, STONE_SHADES.length)];
+  const n = thash(x >> 1, y >> 1, 56);
+  if (n < 0.32) return [24, 24, 26];          // 石炭のかたまり
+  if (n < 0.40) return [40, 40, 44];
+  return base;
+});
+
+tiles[T_TALLGRASS] = (function () {
+  const px = new Uint8Array(16 * 16 * 4);
+  const r = rnd(77);
+  const GREEN = [96, 150, 58];
+  const put = (x, y, c) => {
+    if (x < 0 || x > 15 || y < 0 || y > 15) return;
+    const i = (y * 16 + x) * 4;
+    px[i] = c[0]; px[i+1] = c[1]; px[i+2] = c[2]; px[i+3] = 255;
+  };
+  const cols = [1, 3, 5, 7, 9, 11, 13];
+  const hs   = [7, 11, 6, 12, 8, 10, 6];
+  for (let c = 0; c < cols.length; c++) {
+    const x = cols[c], h = hs[c];
+    for (let k = 0; k < h; k++) {
+      const t = k / h;
+      put(x, 15 - k, shade(GREEN, (t * 34 - 12 + r() * 10 - 5) | 0));
+    }
+    if (h > 8) put(x + 1, 16 - h, shade(GREEN, 18));
+  }
+  return px;
+})();
+
+tiles[T_POPPY] = artTile([
+  "................", "................", "......ddd.......", ".....drrrd......",
+  "....drrrrrd.....", "....drryrrd.....", "....drrrrrd.....", ".....drrrd......",
+  "......dgd.......", ".......g........", ".......g.G......", "......Gg.G......",
+  ".......gG.......", ".......g........", ".......g........", ".......g........",
+], { r:[214,54,48], d:[150,28,28], y:[240,205,90], g:[74,124,52], G:[92,150,62] });
+
+tiles[T_WATER] = makeTile(88, (x, y) => {
+  const WATER_SHADES = [[42,106,196],[52,120,210],[62,134,224],[74,148,236]];
+  const band = (y >> 1) & 1;                    // 横に流れるような段
+  const i = Math.min(3, blob(x, y, 88 + band * 5, 3) + band);
+  return WATER_SHADES[i];
+});
+
+// ---- モブ用 ----
+tiles[T_PIG] = shadeTile(101, [[206,120,124],[222,134,138],[235,145,148],[246,160,162]]);
+tiles[T_PIG_FACE] = (function () {
+  const px = tiles[T_PIG].slice();
+  const put = (x, y, c) => { const i = (y * 16 + x) * 4; px[i]=c[0]; px[i+1]=c[1]; px[i+2]=c[2]; px[i+3]=255; };
+  const EYE = [44, 30, 34], W = [250, 250, 250], SNOUT = [196, 106, 112], NOSE = [120, 60, 66];
+  for (const ex of [3, 11]) {                    // 目
+    for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 3; dy++) put(ex + dx, 3 + dy, EYE);
+    put(ex + (ex === 3 ? -1 : 2), 3, W); put(ex + (ex === 3 ? -1 : 2), 4, W);
+  }
+  for (let x = 5; x <= 10; x++) for (let y = 8; y <= 13; y++) put(x, y, SNOUT);   // 鼻先
+  for (const nx of [6, 9]) for (let dy = 0; dy < 2; dy++) put(nx, 10 + dy, NOSE);
+  return px;
+})();
+// 鼻ブロック専用（目が写り込まない、鼻先だけの見た目）
+tiles[T_PIG_SNOUT] = (function () {
+  const px = new Uint8Array(16 * 16 * 4);
+  const put = (x, y, c) => { const i = (y * 16 + x) * 4; px[i]=c[0]; px[i+1]=c[1]; px[i+2]=c[2]; px[i+3]=255; };
+  const SNOUT = [206, 116, 120], EDGE = [176, 94, 100], NOSE = [120, 60, 66];
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    put(x, y, (x < 1 || x > 14 || y < 1 || y > 14) ? EDGE : SNOUT);
+  }
+  for (const nx of [5, 10]) for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 2; dx++) put(nx + dx, 6 + dy, NOSE);
+  return px;
+})();
+tiles[T_CHICKEN] = shadeTile(111, [[212,212,206],[226,226,220],[238,238,232],[248,248,244]]);
+tiles[T_CHICKEN_FACE] = (function () {
+  const px = tiles[T_CHICKEN].slice();
+  const put = (x, y, c) => { const i = (y * 16 + x) * 4; px[i]=c[0]; px[i+1]=c[1]; px[i+2]=c[2]; px[i+3]=255; };
+  const EYE = [40, 32, 30], RED = [198, 52, 44];
+  for (const ex of [3, 11]) for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 3; dy++) put(ex + dx, 5 + dy, EYE);
+  for (let x = 6; x <= 9; x++) put(x, 13, RED);          // 肉ぜん
+  for (let x = 6; x <= 9; x++) put(x, 14, RED);
+  return px;
+})();
+tiles[T_ORANGE] = shadeTile(121, [[206,134,32],[222,148,38],[236,162,48],[248,178,64]]);
+tiles[T_RED]    = shadeTile(131, [[168,38,32],[186,46,38],[202,56,46],[218,70,58]]);
+
+// ---- 空 ----
+tiles[T_SUN] = makeTile(141, (x, y) => {
+  const d = Math.hypot(x - 7.5, y - 7.5);
+  if (d > 7.4) return null;
+  if (d > 6.2) return [255, 226, 150];
+  return [255, 246, 208];
+});
+tiles[T_MOON] = makeTile(151, (x, y, r) => {
+  const d = Math.hypot(x - 7.5, y - 7.5);
+  if (d > 7.2) return null;
+  const craters = [[5,5,1.6],[10,7,1.3],[7,11,1.1]];
+  for (const c of craters) if (Math.hypot(x - c[0], y - c[1]) < c[2]) return [196, 200, 212];
+  return [232, 236, 244];
+});
+tiles[T_CLOUD] = shadeTile(161, [[232,236,244],[240,243,249],[246,248,252],[252,253,255]]);
+
+// ---- 水草 ----
+tiles[T_SEAGRASS] = (function () {
+  const px = new Uint8Array(16 * 16 * 4);
+  const r = rnd(171);
+  const GREEN = [58, 138, 96];
+  const put = (x, y, c) => {
+    if (x < 0 || x > 15 || y < 0 || y > 15) return;
+    const i = (y * 16 + x) * 4;
+    px[i] = c[0]; px[i+1] = c[1]; px[i+2] = c[2]; px[i+3] = 255;
+  };
+  const cols = [2, 5, 8, 11, 14];
+  const hs   = [12, 16, 10, 15, 11];
+  for (let c = 0; c < cols.length; c++) {
+    let x = cols[c];
+    const h = hs[c];
+    for (let k = 0; k < h; k++) {
+      const t = k / h;
+      if (k > 3 && k % 6 === 0) x += (c % 2 ? 1 : -1);     // ゆらゆら曲げる
+      put(x, 15 - k, shade(GREEN, (t * 40 - 10 + r() * 12 - 6) | 0));
+    }
+  }
+  return px;
+})();
+
+// ---- 昆布（海に生える。縦に積んで最大8ブロックまで育つ） ----
+tiles[T_KELP] = (function () {
+  const px = new Uint8Array(16 * 16 * 4);
+  const put = (x, y, c) => {
+    if (x < 0 || x > 15 || y < 0 || y > 15) return;
+    const i = (y * 16 + x) * 4;
+    px[i] = c[0]; px[i+1] = c[1]; px[i+2] = c[2]; px[i+3] = 255;
+  };
+  const DARK = [42, 86, 38], MID = [62, 114, 50], LIGHT = [84, 140, 66];
+  const r = rnd(233);
+  let x = 7;
+  for (let y = 0; y < 16; y++) {
+    if (y > 0 && y % 4 === 0) x += (((y / 4) % 2) === 0 ? 1 : -1);
+    put(x, y, shade(MID, (r() * 30 - 15) | 0));
+    put(x + 1, y, shade(DARK, (r() * 20 - 10) | 0));
+    if (y % 5 === 1) put(x - 1, y, LIGHT);
+    if (y % 5 === 3) put(x + 2, y, LIGHT);
+  }
+  return px;
+})();
+
+// ---- 金魚 ----
+tiles[T_FISH] = makeTile(181, (x, y) => {
+  const pal = y < 6 ? [[158,26,20],[178,34,26],[198,44,34]] : [[202,52,40],[222,64,48],[240,84,66]];
+  return pal[blob(x, y, 181, 3)];
+});
+tiles[T_FISH_FIN] = shadeTile(182, [[210,74,58],[226,84,66],[238,92,74],[248,110,90]]);
+// 目は体の左右につく（口は描かない）。u の向きが左右で逆なので 2 枚用意する
+function fishEyeTile(frontLeft) {
+  const px = tiles[T_FISH].slice();
+  const put = (x, y, c) => { const i = (y * 16 + x) * 4; px[i]=c[0]; px[i+1]=c[1]; px[i+2]=c[2]; px[i+3]=255; };
+  // 体の側面は横長に引き伸ばされるので、目は縦長のドットで描いて正方形に見せる
+  const ex = frontLeft ? 3 : 11;
+  for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 4; dy++) put(ex + dx, 5 + dy, [248, 248, 248]);
+  for (let dy = 0; dy < 2; dy++) put(ex, 6 + dy, [30, 24, 22]);
+  return px;
+}
+tiles[T_FISH_EYE_R] = fishEyeTile(false);
+tiles[T_FISH_EYE_L] = fishEyeTile(true);
+
+// ---- 宝箱 ----
+const CHEST_SHADES = [[118, 80, 42],[136, 94, 50],[152,108, 60],[166,122, 70]];
+function chestTile(seed, kind) {          // kind: 0=側面 1=上面 2=正面
+  return makeTile(seed, (x, y) => {
+    let c = CHEST_SHADES[blob(x, y, seed, CHEST_SHADES.length)];
+    if ((y & 3) === 3) c = [100, 66, 34];                       // 板のすき間
+    if (kind !== 1 && y >= 6 && y <= 8) c = [76, 52, 28];       // 金具の帯
+    if (kind === 1 && y >= 6 && y <= 8) c = [76, 52, 28];
+    if (x === 0 || x === 15 || y === 0 || y === 15) c = [84, 56, 30];
+    if (kind === 2 && x >= 6 && x <= 9 && y >= 5 && y <= 9) {
+      c = [[150,152,160],[176,178,186],[198,200,208]][blob(x, y, seed + 3, 3)];
+      if (x === 7 && y >= 7 && y <= 8) c = [58, 58, 64];        // 鍵穴
+    }
+    return c;
+  });
+}
+tiles[T_CHEST_SIDE] = chestTile(191, 0);
+tiles[T_CHEST_TOP] = chestTile(192, 1);
+tiles[T_CHEST_FRONT] = chestTile(193, 2);
+
+// ---- 青い花・黄色い花 ----
+tiles[T_CORNFLOWER] = artTile([
+  "................", "................", "......b.b.......", ".....bBbBb......",
+  "....bBBBBBb.....", "....bBBnBBb.....", "....bBBBBBb.....", ".....bBbBb......",
+  "......bgb.......", ".......g........", ".......g.G......", "......Gg.G......",
+  ".......gG.......", ".......g........", ".......g........", ".......g........",
+], { b:[68,92,204], B:[116,146,244], n:[38,52,150], g:[74,124,52], G:[92,150,62] });
+
+tiles[T_DANDELION] = artTile([
+  "................", "................", "......yyy.......", ".....yYYYy......",
+  "....yYYYYYy.....", "....yYYoYYy.....", ".....yYYYy......", "......yyy.......",
+  ".......g........", ".......g........", ".......g.G......", "......Gg.G......",
+  ".......gG.......", ".......g........", ".......g........", ".......g........",
+], { y:[214,178,40], Y:[250,222,84], o:[222,158,28], g:[74,124,52], G:[92,150,62] });
+
+// ---- 砂 ----
+tiles[T_SAND] = makeTile(0xF0C070, (x, y, s) => {
+  const n = thash(x, y, s);
+  const r = Math.min(255, (194 + (n * 32)) | 0);
+  const g = Math.min(255, (172 + (n * 24)) | 0);
+  const b = Math.min(255, (100 + (n * 14)) | 0);
+  return [r, g, b, 255];
+});
+
+// ---- サボテン（側面、トゲ付き） ----
+tiles[T_CACTUS_SIDE] = artTile([
+  "ggggggGGGGgggggg",
+  "ggggGGGGGGGGgggg",
+  "gggtGGGGGGGGgggg",
+  "ggggGGGGGGGGgggg",
+  "ggggGGGGGGGGtggg",
+  "aaaaGGGGGGGGaaaa",
+  "ggggGGGGGGGGgggg",
+  "gggtGGGGGGGGgggg",
+  "ggggGGGGGGGGgggg",
+  "ggggGGGGGGGGtggg",
+  "aaaaGGGGGGGGaaaa",
+  "ggggGGGGGGGGgggg",
+  "gggtGGGGGGGGgggg",
+  "ggggGGGGGGGGgggg",
+  "ggggGGGGGGGGtggg",
+  "ggggggGGGGgggggg",
+], { g:[48,90,40], G:[72,134,60], a:[86,148,70], t:[228,222,182] });
+
+// ---- サボテン（上面） ----
+tiles[T_CACTUS_TOP] = artTile([
+  "ggggggGGGGgggggg", "ggggGGGGGGGGgggg", "ggGGGGGGGGGGGGgg",
+  "ggGGGGGGGGGGGGgg", "gGGGGGGGGGGGGGGg", "gGGGGGGGGGGGGGGg",
+  "gGGGGGGGGGGGGGGg", "gGGGGGGGGGGGGGGg", "gGGGGGGGGGGGGGGg",
+  "gGGGGGGGGGGGGGGg", "gGGGGGGGGGGGGGGg", "gGGGGGGGGGGGGGGg",
+  "ggGGGGGGGGGGGGgg", "ggGGGGGGGGGGGGgg", "ggggGGGGGGGGgggg",
+  "ggggggGGGGgggggg",
+], { g:[48,90,40], G:[72,134,60] });
+
+// ---- クモ（体） ----
+tiles[T_SPIDER] = makeTile(0x181014, (x, y, s) => {
+  const n = thash(x, y, s);
+  const v = (n * 16) | 0;
+  return [22 + v, 16 + v, 20 + v, 255];
+});
+
+// ---- クモ（目） ----
+tiles[T_SPIDER_EYE] = artTile([
+  "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd",
+  "ddrrddrrddddddddd".slice(0,16), "ddrrddrrddddddddd".slice(0,16), "dddddddddddddddd",
+  "ddrrddrrddddddddd".slice(0,16), "ddrrddrrddddddddd".slice(0,16), "dddddddddddddddd",
+  "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd",
+  "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd",
+  "dddddddddddddddd",
+], { d:[20,15,18], r:[220,44,44] });
+
+// ---- 鉄の剣 ----（刃・十字の鍔・柄・柄頭がはっきりわかる、しっかりした剣のシルエット）
+const SWORD_SHAPE = [
+  "...........obmdo",
+  "..........obmdo.",
+  ".........obmdo..",
+  "........obmdo...",
+  ".......obmdo....",
+  "......obmdo.....",
+  ".....obmdo......",
+  "....obmdo.......",
+  "o..obmdo........",
+  "oGGGGGGGGGo.....",
+  "oGGGGGGGGGo.....",
+  "......oHho......",
+  ".....oHho.......",
+  "....oHho........",
+  "...oHho.........",
+  ".ppp............",
+];
+tiles[T_SWORD] = artTile(SWORD_SHAPE,
+  { o:[26,26,30], b:[248,250,255], m:[206,209,218], d:[150,153,163],
+    G:[120,122,132], H:[150,104,64], h:[104,70,40], p:[70,72,80] });
+
+// ---- 羽根・豚肉 ----
+tiles[T_FEATHER] = artTile([
+  "..............w.", ".............wWw", "............wWWw", "...........wWWw.",
+  "..........wWWWw.", ".........wWWWw..", "........wWWWw...", ".......wWWWw....",
+  "......wWWsw.....", ".....wWWs.......", "....wWs.........", "...ws...........",
+  "...s............", "..s.............", "..s.............", "................",
+], { w:[186,190,200], W:[248,250,255], s:[150,154,166] });
+
+tiles[T_PORK] = artTile([
+  "................", "....ffffff......", "...fFFFFFFf.....", "..fFppppppFf....",
+  "..fFpPPPPppFf...", ".fFpPPPPPPpFf...", ".fFpPPPPPPpPf...", ".fFpPPPPPPpPf...",
+  ".fFpPPPPPPpPf...", "..fFpPPPPppFf...", "..fFppppppFf....", "...fFFFFFFf.....",
+  "....ffffff......", "................", "................", "................",
+], { f:[168,116,104], F:[236,178,168], p:[214,110,104], P:[236,146,140] });
+
+// ---- 革 ----
+tiles[T_LEATHER] = artTile([
+  "................",
+  "................",
+  "...hhhhhhhhhh...",
+  "..hHHHHHHHHHHh..",
+  ".hHHhhhhhhhhHHh.",
+  ".hHh........hHh.",
+  ".hHh........hHh.",
+  ".hHh........hHh.",
+  ".hHh........hHh.",
+  ".hHh........hHh.",
+  ".hHh........hHh.",
+  ".hHHhhhhhhhhHHh.",
+  "..hHHHHHHHHHHh..",
+  "...hhhhhhhhhh...",
+  "................",
+  "................",
+], { h:[104,68,40], H:[150,104,64] });
+
+// ---- 革防具（アイコン） ----
+tiles[T_ARMOR_HELMET] = artTile([
+  "................",
+  "................",
+  "....hhhhhhhh....",
+  "...hHHHHHHHHh...",
+  "..hHHHHHHHHHHh..",
+  "..hHH......HHh..",
+  "..hHH......HHh..",
+  "..hH........Hh..",
+  "..hhhhhhhhhhhh..",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+], { h:[104,68,40], H:[150,104,64] });
+
+tiles[T_ARMOR_CHEST] = artTile([
+  "................",
+  "....hh....hh....",
+  "...hHHh..hHHh...",
+  "...hHHhhhhHHh...",
+  "...hHHHHHHHHh...",
+  "...hHHHHHHHHh...",
+  "...hHHHHHHHHh...",
+  "....hHHHHHHh....",
+  "....hHHHHHHh....",
+  ".....hhhhhh.....",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+], { h:[104,68,40], H:[150,104,64] });
+
+tiles[T_ARMOR_LEGS] = artTile([
+  "................",
+  "................",
+  "...hhhhhhhhh....",
+  "..hHHHHHHHHHh...",
+  "..hHHHHHHHHHh...",
+  "..hHHH..HHHHh...",
+  "..hHHh....HHh...",
+  "..hHHh....HHh...",
+  "..hHHh....HHh...",
+  "..hHHh....HHh...",
+  "..hhhh....hhh...",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+], { h:[104,68,40], H:[150,104,64] });
+
+tiles[T_ARMOR_BOOTS] = artTile([
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "..hHHh....hHHh..",
+  "..hHHh....hHHh..",
+  "..hHHh....hHHh..",
+  "..hHhhh..hhHhh..",
+  "..hhhhh..hhhhh..",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+], { h:[104,68,40], H:[150,104,64] });
+
+// ---- 糸・弓・矢 ----
+tiles[T_STRING] = artTile([
+  "...............s",
+  "..............s.",
+  ".............s..",
+  "............s...",
+  "...........s....",
+  "..........s.....",
+  ".........s......",
+  "........s.......",
+  ".......s........",
+  "......s.........",
+  ".....s..........",
+  "....s...........",
+  "...s............",
+  "..s.............",
+  ".s..............",
+  "s...............",
+], { s:[224,224,216] });
+
+tiles[T_BOW] = artTile([
+  "..........hH....",
+  ".........hHs....",
+  ".......hH..s....",
+  "......hH...s....",
+  ".....hH....s....",
+  "....hH.....s....",
+  "...hH......s....",
+  "...hH......s....",
+  "...hH......s....",
+  "...hH......s....",
+  "....hH.....s....",
+  ".....hH....s....",
+  "......hH...s....",
+  ".......hH..s....",
+  ".........hHs....",
+  "..........hH....",
+], { h:[104,68,40], H:[150,104,64], s:[224,224,216] });
+
+tiles[T_ARROW] = artTile([
+  "..............aa",
+  ".............aHa",
+  ".............Ha.",
+  "............H...",
+  "...........H....",
+  "..........H.....",
+  ".........H......",
+  "........H.......",
+  ".......H........",
+  "......H.........",
+  ".....H..........",
+  "....H...........",
+  "...H............",
+  "..f.............",
+  "ff..............",
+  "ff..............",
+], { a:[150,154,166], H:[150,104,64], f:[236,238,246] });
+
+// ---- スポーンエッグ ----
+const EGG_ROWS = [
+  "................",
+  ".......EE.......",
+  ".....EEBBEE.....",
+  "....EBBBBBBE....",
+  "....EBBBSBBE....",
+  "...EBSBBBBBBE...",
+  "...EBBBBBBSBE...",
+  "...EBBBBBBBBE...",
+  "...EBBBBBBBBE...",
+  "...EBBBBBBBBE...",
+  "...EBBBBBBBSE...",
+  "....EBSBBBBE....",
+  "....EBBBBBBE....",
+  ".....EEBBEE.....",
+  ".......EE.......",
+  "................",
+];
+tiles[T_EGG_PIG] = artTile(EGG_ROWS, { B:[224,163,163], E:[190,124,124], S:[255,240,240] });
+tiles[T_EGG_COW] = artTile(EGG_ROWS, { B:[255,255,255], E:[210,210,210], S:[92,60,40] });
+tiles[T_EGG_CHICKEN] = artTile(EGG_ROWS, { B:[255,255,255], E:[225,225,225], S:[214,60,50] });
+tiles[T_EGG_ZOMBIE] = artTile(EGG_ROWS, { B:[94,140,74], E:[66,104,54], S:[40,70,40] });
+tiles[T_EGG_SPIDER] = artTile(EGG_ROWS, { B:[40,40,44], E:[20,20,24], S:[176,40,40] });
+tiles[T_EGG_GOLDFISH] = artTile(EGG_ROWS, { B:[255,140,40], E:[214,100,20], S:[255,210,120] });
+
+// ---- 松明 ----
+tiles[T_TORCH] = artTile([
+  "......ff........",
+  ".....FFFF.......",
+  ".....FFFF.......",
+  "......oo........",
+  "......cc........",
+  "......hh........",
+  "......hh........",
+  "......hh........",
+  "......hh........",
+  "......hh........",
+  "......hh........",
+  "......hh........",
+  "......hh........",
+  "......hh........",
+  "......hh........",
+  "......hh........",
+], { f:[255,244,200], F:[255,170,40], o:[214,90,30], c:[60,42,30], h:[132,92,52] });
+
+// ---- イカ ----
+tiles[T_SQUID] = makeTile(0x59, (x, y) => {
+  const SQUID_SHADES = [[150,138,196],[168,154,214],[184,170,228],[200,188,240]];
+  return SQUID_SHADES[blob(x, y, 0x59, SQUID_SHADES.length)];
+});
+tiles[T_EGG_SQUID] = artTile(EGG_ROWS, { B:[168,154,214], E:[132,118,178], S:[224,216,248] });
+tiles[T_SQUID_FIN] = shadeTile(0x5A, [[128,116,176],[144,130,194],[160,146,210],[176,162,224]]);
+
+// ---- 木のツルハシ・斧・木の剣 ----（木の剣は鉄の剣と同じ形で、色だけ木材色にしたもの）
+tiles[T_WOOD_SWORD] = artTile(SWORD_SHAPE,
+  { o:[26,26,30], b:[250,228,180], m:[214,182,124], d:[170,140,90],
+    G:[140,100,60], H:[104,70,40], h:[80,54,30], p:[64,44,26] });
+tiles[T_AXE] = artTile([
+  "......oaao......",
+  ".....oaaaao.....",
+  "....oaaaaaao....",
+  "....oaaaaaaao...",
+  "....oaaaaaaao...",
+  "....oaaaaaao....",
+  "....oaaaaao.....",
+  "....oaaao.......",
+  "....oGGo........",
+  "...oGGGGGGo.....",
+  "...oHHo.........",
+  "..oHHo..........",
+  ".oHHo...........",
+  "oHHo............",
+  "hho.............",
+  "po..............",
+], { o:[26,26,30], a:[196,200,206], G:[150,152,160],
+     H:[104,70,40], h:[80,54,30], p:[64,44,26] });
+tiles[T_PICKAXE] = artTile([
+  "................",
+  ".....oaaaao.....",
+  "....oaaaaaao....",
+  "..oaaaaaaaaaao..",
+  ".oaaaaaaaaaaaao.",
+  "oaaaaaaaaaaaaaao",
+  "....oGGGGGGo....",
+  "....oGGGGGGo....",
+  "...oGGGGGGGGo...",
+  "...oGGGGGGo.....",
+  "...oHHo.........",
+  "..oHHo..........",
+  ".oHHo...........",
+  "oHHo............",
+  "hho.............",
+  "po..............",
+], { o:[26,26,30], a:[200,202,210], G:[140,142,150],
+     H:[104,70,40], h:[80,54,30], p:[64,44,26] });
+
+// ---- サメ ----
+tiles[T_SHARK] = makeTile(0x61, (x, y) => {
+  const SHARK_SHADES = [[86,96,104],[100,110,118],[114,124,132],[128,138,146]];
+  return SHARK_SHADES[blob(x, y, 0x61, SHARK_SHADES.length)];
+});
+tiles[T_SHARK_BELLY] = shadeTile(0x62, [[186,192,196],[200,206,210],[212,218,222],[224,228,232]]);
+tiles[T_SHARK_FIN] = shadeTile(0x63, [[66,74,80],[78,86,92],[90,98,104],[102,110,116]]);
+tiles[T_EGG_SHARK] = artTile(EGG_ROWS, { B:[100,110,118], E:[70,78,86], S:[220,224,228] });
+// 目：白目に黒い瞳（どの面から見てもわかるよう全面に描く）
+tiles[T_SHARK_EYE] = artTile([
+  "................", "................", "..wwwwwwwwwwww..",
+  ".wwwwwwwwwwwwww.", "wwwwwwddddwwwwww".slice(0,16), "wwwwwddddddwwwww".slice(0,16),
+  "wwwwwddddddwwwww".slice(0,16), "wwwwwddddddwwwww".slice(0,16), "wwwwwddddddwwwww".slice(0,16),
+  ".wwwwwddddwwwwww".slice(0,16), ".wwwwwwwwwwwwww.", "..wwwwwwwwwwww..",
+  "................", "................", "................", "................",
+], { w:[240,240,238], d:[20,18,24] });
+// 口：下あごに並ぶ鋭い歯
+tiles[T_SHARK_MOUTH] = makeTile(0x64, (x, y) => {
+  const base = [40, 20, 20];
+  if ((x % 3) < 2 && y < 8) return [232, 230, 224];     // 歯
+  return base;
+});
+
+// ---- 木 ----
+// 原木の側面：縦の樹皮の筋
+tiles[T_LOG_SIDE] = makeTile(221, (x, y) => {
+  const col = (thash(x, 0, 221) * BARK_SHADES.length) | 0;      // 列ごとの基本の濃さ
+  let i = Math.min(BARK_SHADES.length - 1, col);
+  if (thash(x, y, 222) > 0.78) i = Math.max(0, i - 1);          // 縦に走る割れ目
+  else if (thash(x, y, 223) > 0.9) i = Math.min(BARK_SHADES.length - 1, i + 1);
+  return BARK_SHADES[i];
+});
+// 原木の断面：年輪
+tiles[T_LOG_TOP] = makeTile(222, (x, y) => {
+  const d = Math.hypot(x - 7.5, y - 7.5);
+  if (d > 6.6) return BARK_SHADES[1 + blob(x, y, 231, 2)];      // まわりは樹皮
+  const CORE = [[142,110, 70],[160,126, 80],[176,142, 96],[190,158,110]];
+  const ring = ((d * 1.25) | 0) % 2;
+  return CORE[Math.min(3, ring * 2 + blob(x, y, 232, 2))];
+});
+tiles[T_LEAVES] = shadeTile(223, LEAF_SHADES, (x, y, h) => {
+  if (h > 0.90) return [36, 68, 28];                            // すき間のように見える暗い点
+  if (h < 0.04) return [116, 174, 82];
+  return null;
+});
+// 木材：横板＋継ぎ目＋釘
+tiles[T_PLANKS] = makeTile(224, (x, y) => {
+  const row = (y >> 2);                                         // 4 ドットごとに 1 枚の板
+  if ((y & 3) === 3) return [124, 92, 52];                      // 板と板のすき間
+  const base = (thash(0, row, 224) * 2) | 0;
+  let i = Math.min(PLANK_SHADES.length - 1, base + blob(x, y, 225 + row, 2));
+  if ((y & 3) === 0 && ((x + row * 5) % 8) === 1) i = 0;        // 釘あと
+  return PLANK_SHADES[i];
+});
+tiles[T_STICK] = artTile([
+  "..............s.", ".............ss.", ".............s..", "............ss..",
+  "............s...", "...........ss...", "...........s....", "..........ss....",
+  "..........s.....", ".........ss.....", ".........s......", "........ss......",
+  "........s.......", ".......ss.......", ".......s........", "................",
+], { s:[132, 94, 52] });
+tiles[T_APPLE] = artTile([
+  "................", "........g.......", ".......g........", "....rrrrrr......",
+  "...rRRRRrrr.....", "..rRRwRRRrrr....", "..rRwwRRRRrr....", "..rRRwRRRRrr....",
+  "..rRRRRRRRrr....", "..rRRRRRRRrr....", "...rRRRRRrr.....", "....rrrrrr......",
+  "................", "................", "................", "................",
+], { r:[164, 32, 30], R:[214, 54, 48], w:[248, 180, 170], g:[86, 132, 54] });
+
+// ---- 作業台 ----
+tiles[T_TABLE_TOP] = makeTile(241, (x, y) => {
+  if (x === 0 || x === 15 || y === 0 || y === 15) return [104, 76, 44];      // ふち
+  if (x === 5 || x === 10 || y === 5 || y === 10) return [96, 70, 40];       // 3x3 の格子
+  return [[150,114,66],[166,128,76],[178,140,86]][blob(x, y, 241, 3)];
+});
+tiles[T_TABLE_SIDE] = makeTile(242, (x, y) => {
+  if (y < 4) return [[140,106,62],[154,118,70],[166,128,76]][blob(x, y, 242, 3)];   // 天板
+  if (y === 4) return [100, 72, 42];
+  return PLANK_SHADES[blob(x, y, 243, PLANK_SHADES.length)];
+});
+tiles[T_TABLE_FRONT] = makeTile(244, (x, y) => {
+  if (y < 4) return [[140,106,62],[154,118,70],[166,128,76]][blob(x, y, 244, 3)];
+  if (y === 4) return [100, 72, 42];
+  let c = PLANK_SHADES[blob(x, y, 245, PLANK_SHADES.length)];
+  if (y >= 7 && y <= 12 && x >= 3 && x <= 6) c = [88, 62, 36];               // 道具のシルエット
+  if (y >= 6 && y <= 12 && x >= 9 && x <= 11) c = [72, 74, 82];
+  return c;
+});
+
+tiles[T_EMPTY] = new Uint8Array(16 * 16 * 4);     // 透明（描かれない面に使う）
+
+// ---- プレイヤー（男 / 女）----
+const PLAYER_SKINS = [
+  { name:"男", skin:[236,190,158], shirt:[58,112,186], pants:[58,62,108], hair:[76,52,36], longHair:false, boot:[64,46,32] },
+  { name:"女", skin:[242,202,176], shirt:[206,92,134], pants:[86,74,126], hair:[158,100,52], longHair:true,  boot:[74,52,38] },
+];
+const PLAYER_FACE_BLINK = [T_PLAYER_FACE_BLINK_M, T_PLAYER_FACE_BLINK_F];
+PLAYER_SKINS.forEach((z, i) => {
+  const base = T_PLAYER + i * 5;
+  z.tSkin = base; z.tFace = base + 1; z.tShirt = base + 2; z.tPants = base + 3; z.tHair = base + 4;
+  z.tFaceBlink = PLAYER_FACE_BLINK[i];
+  const st = (c, d) => [shade(c, -d), shade(c, -(d >> 1)), c, shade(c, d >> 1)];
+  tiles[z.tSkin]  = shadeTile(231 + i * 9, st(z.skin, 16));
+  tiles[z.tShirt] = shadeTile(232 + i * 9, st(z.shirt, 22));
+  tiles[z.tPants] = shadeTile(233 + i * 9, st(z.pants, 22));
+  tiles[z.tHair]  = shadeTile(234 + i * 9, st(z.hair, 26));
+  const BROW = shade(z.hair, -10);
+  const FRINGE = (put) => { for (let x = 0; x < 16; x++) for (let y = 0; y < 3; y++) put(x, y, shade(z.hair, (y * 4 - 4) | 0)); };
+  tiles[z.tFace] = (function () {
+    const px = tiles[z.tSkin].slice();
+    const put = (x, y, c) => { const j = (y * 16 + x) * 4; px[j]=c[0]; px[j+1]=c[1]; px[j+2]=c[2]; px[j+3]=255; };
+    for (const ex of [3, 10]) {
+      for (let dx = 0; dx < 3; dx++) put(ex + dx, 5, BROW);                                        // 眉
+      for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 2; dy++) put(ex + dx, 6 + dy, [250, 250, 250]);  // 白目
+      for (let dx = 1; dx <= 2; dx++) for (let dy = 0; dy < 2; dy++) put(ex + dx, 6 + dy, [52, 70, 120]);   // ひとみ
+    }
+    for (let x = 6; x <= 9; x++) put(x, 11, shade(z.skin, -30));          // 口（上唇）
+    for (let x = 6; x <= 9; x++) put(x, 12, shade(z.skin, -50));          // 口（下、影）
+    FRINGE(put);                                                          // 前髪
+    return px;
+  })();
+  tiles[z.tFaceBlink] = (function () {                                    // まばたき（目を閉じた顔）
+    const px = tiles[z.tSkin].slice();
+    const put = (x, y, c) => { const j = (y * 16 + x) * 4; px[j]=c[0]; px[j+1]=c[1]; px[j+2]=c[2]; px[j+3]=255; };
+    const LID = shade(z.skin, -55);
+    for (const ex of [3, 10]) {
+      for (let dx = 0; dx < 3; dx++) put(ex + dx, 5, BROW);
+      for (let dx = 0; dx < 3; dx++) put(ex + dx, 7, LID);                // 閉じたまぶたの線
+    }
+    for (let x = 6; x <= 9; x++) put(x, 11, shade(z.skin, -30));
+    for (let x = 6; x <= 9; x++) put(x, 12, shade(z.skin, -50));
+    FRINGE(put);
+    return px;
+  })();
+});
+
+// ---- 牛（ホルスタイン） ----
+tiles[T_COW] = makeTile(211, (x, y) => {
+  const n = noise2(x / 4.2 + 5.3, y / 4.2 - 2.7);
+  const dark = n < 0.45;
+  const pal = dark ? [[26,24,22],[38,36,34],[52,50,46]] : [[214,212,206],[230,228,222],[244,242,238]];
+  return pal[blob(x, y, 211, 3)];
+});
+tiles[T_COW_FACE] = (function () {
+  const px = new Uint8Array(16 * 16 * 4);
+  const r = rnd(212);
+  const put = (x, y, c) => { const i = (y * 16 + x) * 4; px[i]=c[0]; px[i+1]=c[1]; px[i+2]=c[2]; px[i+3]=255; };
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const n = noise2(x / 5 + 21.5, y / 5 + 9.25);
+    put(x, y, shade(n < 0.42 ? [40, 36, 34] : [234, 232, 228], (r() * 18 - 9) | 0));
+  }
+  for (const ex of [2, 11]) {                                  // 目
+    for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) put(ex + dx, 4 + dy, [248, 248, 248]);
+    for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 2; dy++) put(ex + dx, 5 + dy, [30, 26, 24]);
+  }
+  for (let x = 5; x <= 10; x++) for (let y = 9; y <= 13; y++) put(x, y, shade([214, 160, 158], (r() * 16 - 8) | 0));
+  for (const nx of [6, 9]) put(nx, 11, [140, 88, 88]);         // 鼻の穴
+  return px;
+})();
+// 鼻先ブロック専用（目が写り込まない、鼻先だけの見た目）
+tiles[T_COW_SNOUT] = (function () {
+  const px = new Uint8Array(16 * 16 * 4);
+  const r = rnd(215);
+  const put = (x, y, c) => { const i = (y * 16 + x) * 4; px[i]=c[0]; px[i+1]=c[1]; px[i+2]=c[2]; px[i+3]=255; };
+  const BASE = [214, 160, 158], NOSE = [140, 88, 88];
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) put(x, y, shade(BASE, (r() * 14 - 7) | 0));
+  for (const nx of [5, 10]) for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 2; dx++) put(nx + dx, 7 + dy, NOSE);
+  return px;
+})();
+tiles[T_COW_HORN]  = shadeTile(213, [[186,176,146],[202,190,158],[214,202,170],[228,216,184]]);
+tiles[T_COW_UDDER] = shadeTile(214, [[198,126,126],[212,138,138],[226,152,150],[238,168,166]]);
+
+// ---- ゾンビ（3 パターン）----
+const ZOMBIE_SKINS = [
+  { name:"ゾンビ",     skin:[ 88,124, 72], shirt:[ 62,110,110], pants:[ 58, 62,120] },
+  { name:"朽ちゾンビ", skin:[ 72, 98, 62], shirt:[112, 86, 58], pants:[ 70, 68, 62] },
+  { name:"青白ゾンビ", skin:[122,142, 96], shirt:[ 96, 70, 96], pants:[ 44, 48, 56] },
+];
+ZOMBIE_SKINS.forEach((z, i) => {
+  const base = T_ZOMBIE + i * 4;
+  z.tSkin = base; z.tFace = base + 1; z.tShirt = base + 2; z.tPants = base + 3;
+  const st = (c, d) => [shade(c, -d), shade(c, -(d >> 1)), c, shade(c, d >> 1)];
+  tiles[z.tSkin]  = shadeTile(201 + i * 7, st(z.skin, 26));
+  tiles[z.tShirt] = shadeTile(202 + i * 7, st(z.shirt, 24));
+  tiles[z.tPants] = shadeTile(203 + i * 7, st(z.pants, 24));
+  tiles[z.tFace] = (function () {
+    const px = tiles[z.tSkin].slice();
+    const put = (x, y, c) => { const j = (y * 16 + x) * 4; px[j]=c[0]; px[j+1]=c[1]; px[j+2]=c[2]; px[j+3]=255; };
+    const HOLE = [16, 22, 18], MOUTH = [38, 46, 34];
+    for (const ex of [2, 9]) for (let dx = 0; dx < 5; dx++) for (let dy = 0; dy < 3; dy++) put(ex + dx, 5 + dy, HOLE);
+    for (let x = 5; x <= 10; x++) put(x, 12, MOUTH);
+    for (const mx of [5, 7, 9]) put(mx, 11, MOUTH);
+    return px;
+  })();
+});
+
+// ---- ブーツ（プレイヤーの脚の下側、革靴の色）----
+tiles[T_BOOT] = shadeTile(251, [[46,34,24],[60,46,32],[72,56,40],[84,66,48]]);
+
+// ---- 落ち葉パーティクル（小さな一枚の葉、まわりは透明）----
+tiles[T_LEAF_PARTICLE] = artTile([
+  "................", "................", "................",
+  "......GGG.......", ".....GLLLG......", "....GLLLLLG.....",
+  "....GLLlLLG.....", "....GLlllLG.....", ".....GlllG......",
+  "......Gll.......", ".......Gl.......", "........G.......",
+  "................", "................", "................",
+  "................",
+], { G:[62,110,46], L:[92,146,64], l:[74,126,52] });
+
+// ---- ブタ／牛：まばたき（目を閉じた顔）----
+tiles[T_PIG_FACE_BLINK] = (function () {
+  const px = tiles[T_PIG].slice();
+  const put = (x, y, c) => { const i = (y * 16 + x) * 4; px[i]=c[0]; px[i+1]=c[1]; px[i+2]=c[2]; px[i+3]=255; };
+  const LID = [44, 30, 34], SNOUT = [196, 106, 112], NOSE = [120, 60, 66];
+  for (const ex of [3, 11]) for (let dx = 0; dx < 2; dx++) put(ex + dx, 4, LID);   // 閉じたまぶた
+  for (let x = 5; x <= 10; x++) for (let y = 8; y <= 13; y++) put(x, y, SNOUT);
+  for (const nx of [6, 9]) for (let dy = 0; dy < 2; dy++) put(nx, 10 + dy, NOSE);
+  return px;
+})();
+tiles[T_COW_FACE_BLINK] = (function () {
+  const px = new Uint8Array(16 * 16 * 4);
+  const r = rnd(212);
+  const put = (x, y, c) => { const i = (y * 16 + x) * 4; px[i]=c[0]; px[i+1]=c[1]; px[i+2]=c[2]; px[i+3]=255; };
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const n = noise2(x / 5 + 21.5, y / 5 + 9.25);
+    put(x, y, shade(n < 0.42 ? [40, 36, 34] : [234, 232, 228], (r() * 18 - 9) | 0));
+  }
+  for (const ex of [2, 11]) for (let dx = 0; dx < 3; dx++) put(ex + dx, 5, [40, 36, 34]);   // 閉じたまぶた
+  for (let x = 5; x <= 10; x++) for (let y = 9; y <= 13; y++) put(x, y, shade([214, 160, 158], (r() * 16 - 8) | 0));
+  for (const nx of [6, 9]) put(nx, 11, [140, 88, 88]);
+  return px;
+})();
+
+const texArray = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D_ARRAY, texArray);
+gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 5, gl.RGBA8, 16, 16, NLAYERS);
+for (let i = 0; i < NLAYERS; i++) {
+  gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, i, 16, 16, 1, gl.RGBA, gl.UNSIGNED_BYTE, tiles[i]);
+}
+gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
+gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+(function () {
+  const ext = gl.getExtension("EXT_texture_filter_anisotropic");
+  if (!ext) return;
+  const m = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+  gl.texParameterf(gl.TEXTURE_2D_ARRAY, ext.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, m));
+})();
+
+// 植物・モブはドットをぼかさずに描く
+const sharpSampler = gl.createSampler();
+gl.samplerParameteri(sharpSampler, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+gl.samplerParameteri(sharpSampler, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+gl.samplerParameteri(sharpSampler, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.samplerParameteri(sharpSampler, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+/* ============================================================
+   4. 地形生成
+   ============================================================ */
+function hash2(x, z) {
+  let h = Math.imul(x, 374761393) + Math.imul(z, 668265263) + WORLD_SEED;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+function smooth(t) { return t * t * (3 - 2 * t); }
+function noise2(x, z) {
+  const xi = Math.floor(x), zi = Math.floor(z);
+  const tx = smooth(x - xi), tz = smooth(z - zi);
+  const a = hash2(xi, zi),     b = hash2(xi + 1, zi);
+  const c = hash2(xi, zi + 1), d = hash2(xi + 1, zi + 1);
+  return (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz;
+}
+// 3 次元ハッシュ／ノイズ（洞窟の掘削に使う）
+function hash3(x, y, z) {
+  let h = Math.imul(x, 374761393) + Math.imul(y, 2246822519) + Math.imul(z, 668265263) + WORLD_SEED;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+function noise3(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const tx = smooth(x - xi), ty = smooth(y - yi), tz = smooth(z - zi);
+  const c000 = hash3(xi, yi, zi),     c100 = hash3(xi + 1, yi, zi);
+  const c010 = hash3(xi, yi + 1, zi), c110 = hash3(xi + 1, yi + 1, zi);
+  const c001 = hash3(xi, yi, zi + 1),     c101 = hash3(xi + 1, yi, zi + 1);
+  const c011 = hash3(xi, yi + 1, zi + 1), c111 = hash3(xi + 1, yi + 1, zi + 1);
+  const x00 = c000 + (c100 - c000) * tx, x10 = c010 + (c110 - c010) * tx;
+  const x01 = c001 + (c101 - c001) * tx, x11 = c011 + (c111 - c011) * tx;
+  const y0 = x00 + (x10 - x00) * ty, y1 = x01 + (x11 - x01) * ty;
+  return y0 + (y1 - y0) * tz;
+}
+// 大陸のかたまり具合（低いほど海）。海の判定・地形の落ち込みの両方に使う
+function continentAt(wx, wz) {
+  return noise2(wx / 260 + 900.5, wz / 260 - 650.25);
+}
+function terrainHeight(wx, wz) {
+  let h = SEA_LEVEL
+    + (noise2(wx / 48, wz / 48) - 0.5) * 5.0
+    + (noise2(wx / 17, wz / 17) - 0.5) * 2.0
+    + (noise2(wx / 6,  wz / 6)  - 0.5) * 0.8;
+  const basin = noise2(wx / 60 + 300.5, wz / 60 - 211.25);   // 窪地＝池になる
+  if (basin < 0.23) h -= (0.23 - basin) * 27;
+  const cont = continentAt(wx, wz);                          // 遠浅の海から深海へなだらかに落ち込む
+  if (cont < 0.42) h -= (0.42 - cont) * 62;
+  return Math.max(4, Math.min(CH_Y - 6, Math.round(h)));
+}
+// 深い海かどうか（池と区別するため、水深で判定する）
+function isDeepOcean(wx, wz) {
+  return WATER_LEVEL - terrainHeight(wx, wz) >= 9;
+}
+// プレイヤーの初期スポーン地点。海の真上などにならないよう、近くの陸地を探す
+function findLandSpawn() {
+  if (terrainHeight(8, 8) >= WATER_LEVEL) return { x: 8, z: 8 };
+  for (let r = 4; r <= 300; r += 4) {
+    for (let a = 0; a < 16; a++) {
+      const ang = (a / 16) * Math.PI * 2;
+      const x = Math.round(8 + Math.cos(ang) * r), z = Math.round(8 + Math.sin(ang) * r);
+      if (terrainHeight(x, z) >= WATER_LEVEL) return { x, z };
+    }
+  }
+  return { x: 8, z: 8 };
+}
+// 砂漠かどうか
+function desertAt(wx, wz) {
+  return noise2(wx / 90 + 500.5, wz / 90 - 300.25);
+}
+// 森かどうか（0〜1、高いほど木が濃い）
+function forestAt(wx, wz) {
+  return noise2(wx / 62 + 411.5, wz / 62 - 277.25);
+}
+// 左上のバイオーム表示用：その座標がどのバイオームか（地形生成の判定条件とそろえてある）
+function biomeAt(wx, wz) {
+  if (isDeepOcean(wx, wz)) return "海";
+  const h = terrainHeight(wx, wz);
+  if (h < WATER_LEVEL) return "池";
+  if (desertAt(wx, wz) > 0.60) return "砂漠";
+  if (forestAt(wx, wz) >= 0.575) return "森";
+  return "平原";
+}
+// その列に木の幹が立つなら、木の高さを返す
+function treeAt(wx, wz) {
+  const f = forestAt(wx, wz);
+  if (f < 0.575) return 0;
+  const h = terrainHeight(wx, wz);
+  if (h < WATER_LEVEL) return 0;
+  const r = hash2(wx * 73 + 17, wz * 131 + 29);
+  const density = 0.022 + (f - 0.575) * 0.26;          // 森の奥ほど密に
+  if (r > density) return 0;
+  return 4 + ((hash2(wx * 19 + 3, wz * 7 + 11) * 3) | 0);   // 幹の高さ 4〜6
+}
+function plantAt(wx, wz) {
+  const patch = noise2(wx / 11 + 130.5, wz / 11 - 70.25);
+  const r = hash2(wx * 31 + 7, wz * 17 + 11);
+  if (r < 0.0009 + patch * 0.0026) return POPPY;      // 赤い花
+  if (r < 0.0021 + patch * 0.0053) return CORNFLOWER; // 青い花
+  if (r < 0.0036 + patch * 0.0082) return DANDELION;  // 黄色い花
+  if (r < 0.05 + patch * 0.17) return TALLGRASS;      // 草はまばらに群生
+  return AIR;
+}
+// サボテンを生やしたい場所か（まばらになるよう低確率、座標だけで決まる純関数）
+function cactusWants(wx, wz) {
+  return hash2(wx * 37 + 11, wz * 29 + 7) < 0.006;
+}
+// その列で一番高い「ふさがっている」Y（木の幹がある場合はその分も含む）
+function columnSolidTop(wx, wz) {
+  const th = terrainHeight(wx, wz);
+  const tr = treeAt(wx, wz);
+  return tr > 0 ? th + tr : th;
+}
+
+/* ============================================================
+   5. チャンク
+   ============================================================ */
+const chunks = new Map();
+const edits = new Map();          // 置いた／壊したブロックを覚えておく（読み込み直しても消えない）
+const key = (cx, cz) => cx + "," + cz;
+const idx = (x, y, z) => (x * CH_Z + z) * CH_Y + y;
+
+// 洞窟の大穴：まばらな格子の中に 1 か所、地表に大きく開いた穴を作る
+// （深さ最大 20、直径 30 以上あり、縁をデコボコにして真円にならないようにする＝横にも不揃いに広がる。
+//   wx,wz だけで決まるのでチャンク境界でも継ぎ目なし）
+const CAVE_ENTRANCE_GRID = 50, CAVE_ENTRANCE_R = 17, CAVE_ENTRANCE_DEPTH = 20;
+function caveEntranceCenterDist(wx, wz) {
+  const gx = Math.floor(wx / CAVE_ENTRANCE_GRID), gz = Math.floor(wz / CAVE_ENTRANCE_GRID);
+  if (hash2(gx * 131 + 7, gz * 257 + 11) > 0.5) return null;   // このマス目には大穴なし
+  const span = CAVE_ENTRANCE_GRID - 30;
+  const ecx = gx * CAVE_ENTRANCE_GRID + 15 + ((hash2(gx * 7 + 1, gz * 13 + 2) * span) | 0);
+  const ecz = gz * CAVE_ENTRANCE_GRID + 15 + ((hash2(gx * 17 + 3, gz * 29 + 5) * span) | 0);
+  const dist = Math.hypot(wx - ecx, wz - ecz);
+  if (dist > CAVE_ENTRANCE_R * 1.7) return null;              // 遠ければ早めに抜ける（負荷軽減）
+  // 縁をノイズでデコボコにして真円にならないようにする（横にも不揃いに広がる大穴にする）
+  const wob = (noise2(wx / 9 + ecx * 0.17, wz / 9 + ecz * 0.17) - 0.5) * 14;
+  return dist - wob;
+}
+// depth = 地表(h)からの深さ（0 が地表）。深さ 20 まで大きく開いたまま、下に行くほど少しだけすぼまる
+function caveEntranceOpenAt(centerDist, depth) {
+  if (centerDist === null || depth < 0 || depth > CAVE_ENTRANCE_DEPTH) return false;
+  const taper = 1 - (depth / (CAVE_ENTRANCE_DEPTH + 8)) * 0.4;
+  return centerDist <= CAVE_ENTRANCE_R * taper;
+}
+// 大穴の一部はまるごと吹き抜けにせず、地面（草・土）で隠れたままにする
+// （ノイズでまだらに決めるので、開いている場所とふさがっている場所が入り混じる）
+function caveEntranceRoofed(wx, wz) {
+  return noise2(wx / 7 + 811.3, wz / 7 - 233.7) > 0.5;
+}
+
+function generateChunk(cx, cz) {
+  const blocks = new Uint8Array(CH_X * CH_Y * CH_Z);
+  for (let x = 0; x < CH_X; x++) {
+    const wx = cx * CH_X + x;
+    for (let z = 0; z < CH_Z; z++) {
+      const wz = cz * CH_Z + z;
+      const h = terrainHeight(wx, wz);
+      const underwater = h < WATER_LEVEL;
+      const dirtDepth = 3 + ((hash2(wx * 7 + 1, wz * 13 + 3) * 2) | 0);
+      const isDesert = !underwater && desertAt(wx, wz) > 0.60;
+      const col = (x * CH_Z + z) * CH_Y;
+      const caveTop = h - dirtDepth - 1;                    // この Y より下だけ洞窟・鉱石の対象
+      const entDist = underwater ? null : caveEntranceCenterDist(wx, wz);   // 洞窟の入り口（あちこちに散らばる）
+      const entRoofed = entDist !== null && caveEntranceRoofed(wx, wz);    // 一部は地面で隠れたままにする
+      for (let y = 0; y <= h; y++) {
+        let b;
+        if (y === 0) b = BEDROCK;
+        else if (entDist !== null && caveEntranceOpenAt(entDist, h - y) &&
+                 !(entRoofed && (h - y) < 3)) b = AIR;   // 洞窟の入り口の穴（一部は地面が残って隠れる）
+        else if (isDesert && y >= h - 2) b = SAND;          // 砂漠は上 3 層が砂
+        else if (y === h) b = underwater ? DIRT : GRASS;    // 水底は土
+        else if (y > h - dirtDepth) b = DIRT;
+        else {
+          b = STONE;
+          if (y >= 2 && y <= caveTop) {
+            const cave = Math.abs(noise3(wx / 8, y / 5.5, wz / 8) - 0.5) < 0.035;
+            if (cave) b = AIR;                              // 洞窟
+            else if (hash3(wx * 3 + 1, y * 5 + 2, wz * 7 + 3) < 0.022) b = COAL_ORE;  // 石炭鉱石
+          }
+        }
+        blocks[col + y] = b;
+      }
+      if (!underwater && treeAt(wx, wz) && !isDesert) {
+        // 木の下には草花を生やさない
+      }
+      if (underwater) {
+        for (let y = h + 1; y <= WATER_LEVEL; y++) blocks[col + y] = WATER;
+        const waterDepth = WATER_LEVEL - h;   // 水面までの深さ（＝置ける水ブロックの数）
+        // 海（深い水）に昆布。水中にしか生えず、水面より上には出ない。最大 8 ブロックの高さ
+        if (waterDepth >= 2 && isDeepOcean(wx, wz) && hash2(wx * 67 + 31, wz * 19 + 47) < 0.10) {
+          const maxKh = Math.max(1, Math.min(8, waterDepth));
+          const kh = 1 + ((hash2(wx * 83 + 5, wz * 97 + 11) * maxKh) | 0);
+          for (let k = 0; k < kh && h + 1 + k <= WATER_LEVEL; k++) blocks[col + h + 1 + k] = KELP;
+        } else if (h + 1 < WATER_LEVEL && hash2(wx * 41 + 9, wz * 23 + 19) < 0.14) {
+          // 水底に水草（水面まで届かない深さのところだけ）
+          blocks[col + h + 1] = SEAGRASS;
+        }
+      } else if (isDesert) {
+        // 砂漠にサボテン（まばらに。四方に地面や別のサボテンが迫っていたら生えない）
+        if (h + 1 < CH_Y && cactusWants(wx, wz)) {
+          const hL = columnSolidTop(wx - 1, wz), hR = columnSolidTop(wx + 1, wz),
+                hD = columnSolidTop(wx, wz - 1), hU = columnSolidTop(wx, wz + 1);
+          const clear = hL <= h && hR <= h && hD <= h && hU <= h &&
+            !cactusWants(wx - 1, wz) && !cactusWants(wx + 1, wz) &&
+            !cactusWants(wx, wz - 1) && !cactusWants(wx, wz + 1);
+          if (clear) {
+            const cH = 1 + ((hash2(wx * 53 + 3, wz * 41 + 9) * 3) | 0);
+            for (let k = 0; k < cH && h + 1 + k < CH_Y; k++) blocks[col + h + 1 + k] = CACTUS;
+          }
+        }
+      } else if (h + 1 < CH_Y && !treeAt(wx, wz)) {
+        const p = plantAt(wx, wz);
+        if (p !== AIR) blocks[col + h + 1] = p;
+      }
+    }
+  }
+  // 木を生やす（幹が隣のチャンクにあっても葉がはみ出せるよう、少し広めに見る）
+  const put = (lx, y, lz, b, overwrite) => {
+    if (lx < 0 || lz < 0 || lx >= CH_X || lz >= CH_Z || y < 0 || y >= CH_Y) return;
+    const i = (lx * CH_Z + lz) * CH_Y + y;
+    if (!overwrite && blocks[i] !== AIR) return;
+    blocks[i] = b;
+  };
+  for (let ox = -3; ox < CH_X + 3; ox++) {
+    for (let oz = -3; oz < CH_Z + 3; oz++) {
+      const wx = cx * CH_X + ox, wz = cz * CH_Z + oz;
+      const th = treeAt(wx, wz);
+      if (!th) continue;
+      const base = terrainHeight(wx, wz) + 1;
+      for (let k = 0; k < th; k++) put(ox, base + k, oz, LOG, true);
+      const top = base + th - 1;
+      for (let dy = -2; dy <= 1; dy++) {
+        const rad = (dy <= -1) ? 2 : 1;
+        for (let dx = -rad; dx <= rad; dx++) for (let dz = -rad; dz <= rad; dz++) {
+          if (rad === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;   // 角を落とす
+          if (dy === 1 && Math.abs(dx) + Math.abs(dz) > 1) continue;
+          put(ox + dx, top + dy, oz + dz, LEAVES, false);
+        }
+      }
+    }
+  }
+
+  const e = edits.get(key(cx, cz));
+  if (e) for (const [i, v] of e) blocks[i] = v;      // あとから変えたぶんを反映
+  return { cx, cz, blocks, dirty:true, built:false, spawned:false,
+           solid:{ vao:null, vbo:null, ibo:null, count:0 },
+           plant:{ vao:null, vbo:null, ibo:null, count:0 },
+           water:{ vao:null, vbo:null, ibo:null, count:0 } };
+}
+function getChunk(cx, cz, create) {
+  const k = key(cx, cz);
+  let c = chunks.get(k);
+  if (!c && create) { c = generateChunk(cx, cz); chunks.set(k, c); }
+  return c;
+}
+function getBlock(wx, wy, wz) {
+  if (wy < 0 || wy >= CH_Y) return AIR;
+  const cx = Math.floor(wx / CH_X), cz = Math.floor(wz / CH_Z);
+  const c = getChunk(cx, cz, true);
+  return c.blocks[idx(wx - cx * CH_X, wy, wz - cz * CH_Z)];
+}
+function setBlock(wx, wy, wz, v) {
+  if (wy < 0 || wy >= CH_Y) return;
+  const cx = Math.floor(wx / CH_X), cz = Math.floor(wz / CH_Z);
+  const c = getChunk(cx, cz, true);
+  const lx = wx - cx * CH_X, lz = wz - cz * CH_Z;
+  const bi = idx(lx, wy, lz);
+  c.blocks[bi] = v;
+  const k = key(cx, cz);
+  let e = edits.get(k);
+  if (!e) { e = new Map(); edits.set(k, e); }
+  e.set(bi, v);
+  c.dirty = true;
+  if (lx === 0)        { const n = getChunk(cx - 1, cz, false); if (n) n.dirty = true; }
+  if (lx === CH_X - 1) { const n = getChunk(cx + 1, cz, false); if (n) n.dirty = true; }
+  if (lz === 0)        { const n = getChunk(cx, cz - 1, false); if (n) n.dirty = true; }
+  if (lz === CH_Z - 1) { const n = getChunk(cx, cz + 1, false); if (n) n.dirty = true; }
+}
+
+/* ============================================================
+   6. メッシュ
+   ============================================================ */
+const FACES = [
+  { dir:[ 1, 0, 0], corners:[[1,0,1],[1,0,0],[1,1,0],[1,1,1]] },
+  { dir:[-1, 0, 0], corners:[[0,0,0],[0,0,1],[0,1,1],[0,1,0]] },
+  { dir:[ 0, 1, 0], corners:[[0,1,1],[1,1,1],[1,1,0],[0,1,0]] },
+  { dir:[ 0,-1, 0], corners:[[0,0,0],[1,0,0],[1,0,1],[0,0,1]] },
+  { dir:[ 0, 0, 1], corners:[[0,0,1],[1,0,1],[1,1,1],[0,1,1]] },
+  { dir:[ 0, 0,-1], corners:[[1,0,0],[0,0,0],[0,1,0],[1,1,0]] },
+];
+const FACE_SHADE = [0.76, 0.76, 1.0, 0.52, 0.88, 0.88];
+const AO_SHADE = [0.48, 0.66, 0.83, 1.0];
+const UVS = [[0,1],[1,1],[1,0],[0,0]];
+const TANGENTS = FACES.map(f => {
+  const t = [];
+  for (let a = 0; a < 3; a++) if (f.dir[a] === 0) t.push(a);
+  return t;
+});
+
+function uploadMesh(target, verts, inds) {
+  if (!target.vao) {
+    target.vao = gl.createVertexArray();
+    target.vbo = gl.createBuffer();
+    target.ibo = gl.createBuffer();
+    gl.bindVertexArray(target.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, target.vbo);
+    const S = 7 * 4;
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, S, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, S, 12);
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, S, 20);
+    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 1, gl.FLOAT, false, S, 24);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, target.ibo);
+    gl.bindVertexArray(null);
+  }
+  gl.bindVertexArray(target.vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, target.vbo);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, target.ibo);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(inds), gl.STATIC_DRAW);
+  gl.bindVertexArray(null);
+  target.count = inds.length;
+}
+function freeMesh(target) {
+  if (!target.vao) return;
+  gl.deleteVertexArray(target.vao); gl.deleteBuffer(target.vbo); gl.deleteBuffer(target.ibo);
+  target.vao = null; target.count = 0;
+}
+
+function buildMesh(chunk) {
+  const { cx, cz, blocks } = chunk;
+  const ox = cx * CH_X, oz = cz * CH_Z;
+  const sv = [], si = [], pv = [], pi = [], wv = [], wi = [];
+  let svi = 0, pvi = 0, wvi = 0;
+  const nb = [0, 0, 0];
+
+  for (let x = 0; x < CH_X; x++) {
+    for (let z = 0; z < CH_Z; z++) {
+      const col = (x * CH_Z + z) * CH_Y;
+      for (let y = 0; y < CH_Y; y++) {
+        const b = blocks[col + y];
+        if (b === AIR) continue;
+
+        /* --- 水 --- */
+        if (b === WATER) {
+          const openTop = !isWater(getBlock(ox + x, y + 1, oz + z));
+          const topY = openTop ? 0.88 : 1;
+          for (let f = 0; f < 6; f++) {
+            const F = FACES[f], d = F.dir;
+            const n = getBlock(ox + x + d[0], y + d[1], oz + z + d[2]);
+            if (isWater(n) || isSolid(n) || n === SEAGRASS || n === KELP) continue;   // 水草・昆布の所も水で埋まっている扱い
+            for (let v = 0; v < 4; v++) {
+              const c = F.corners[v], uv = UVS[v];
+              wv.push(x + c[0], y + (c[1] === 1 ? topY : 0), z + c[2],
+                      uv[0], uv[1], T_WATER, FACE_SHADE[f]);
+            }
+            wi.push(wvi, wvi+1, wvi+2, wvi, wvi+2, wvi+3);
+            wvi += 4;
+          }
+          continue;
+        }
+
+        /* --- 植物 --- */
+        if (isPlant(b)) {
+          const layer = PLANT_TEX[b];
+          const jx = b === TORCH ? 0 : (hash2(ox + x, oz + z) - 0.5) * 0.24;
+          const jz = b === TORCH ? 0 : (hash2(oz + z + 91, ox + x + 13) - 0.5) * 0.24;
+          const H = b === POPPY ? 0.95 : ((b === SEAGRASS || b === KELP) ? 1.0 : (b === TORCH ? 0.62 : 0.9));
+          const sh = b === POPPY ? 1.0 : ((b === SEAGRASS || b === KELP) ? 0.88 : (b === TORCH ? 1.0 : 0.94));
+          const quads = [
+            [[0.02,0,0.02],[0.98,0,0.98],[0.98,H,0.98],[0.02,H,0.02]],
+            [[0.98,0,0.02],[0.02,0,0.98],[0.02,H,0.98],[0.98,H,0.02]],
+          ];
+          for (const q of quads) {
+            for (let v = 0; v < 4; v++) {
+              const c = q[v], uv = UVS[v];
+              pv.push(x + c[0] + jx, y + c[1], z + c[2] + jz, uv[0], uv[1], layer, sh);
+            }
+            pi.push(pvi, pvi+1, pvi+2, pvi, pvi+2, pvi+3);
+            pvi += 4;
+          }
+          continue;
+        }
+
+        /* --- 立方体ブロック --- */
+        const texSet = BLOCK_TEX[b];
+        for (let f = 0; f < 6; f++) {
+          const F = FACES[f], d = F.dir;
+          const nyw = y + d[1];
+          if (nyw < 0) continue;
+          if (nyw < CH_Y && isSolid(getBlock(ox + x + d[0], nyw, oz + z + d[2]))) continue;
+
+          const layer = texSet[f], base = FACE_SHADE[f], tan = TANGENTS[f];
+          const ao = [0, 0, 0, 0];
+          for (let v = 0; v < 4; v++) {
+            const c = F.corners[v];
+            const s0 = c[tan[0]] === 1 ? 1 : -1;
+            const s1 = c[tan[1]] === 1 ? 1 : -1;
+            nb[0]=d[0]; nb[1]=d[1]; nb[2]=d[2]; nb[tan[0]] += s0;
+            const side0 = isSolid(getBlock(ox + x + nb[0], y + nb[1], oz + z + nb[2])) ? 1 : 0;
+            nb[0]=d[0]; nb[1]=d[1]; nb[2]=d[2]; nb[tan[1]] += s1;
+            const side1 = isSolid(getBlock(ox + x + nb[0], y + nb[1], oz + z + nb[2])) ? 1 : 0;
+            nb[0]=d[0]; nb[1]=d[1]; nb[2]=d[2]; nb[tan[0]] += s0; nb[tan[1]] += s1;
+            const corner = isSolid(getBlock(ox + x + nb[0], y + nb[1], oz + z + nb[2])) ? 1 : 0;
+            ao[v] = (side0 && side1) ? 0 : 3 - (side0 + side1 + corner);
+          }
+          for (let v = 0; v < 4; v++) {
+            const c = F.corners[v], uv = UVS[v];
+            sv.push(x + c[0], y + c[1], z + c[2], uv[0], uv[1], layer, base * AO_SHADE[ao[v]]);
+          }
+          if (ao[0] + ao[2] > ao[1] + ao[3]) si.push(svi+1, svi+2, svi+3, svi+1, svi+3, svi+0);
+          else                               si.push(svi+0, svi+1, svi+2, svi+0, svi+2, svi+3);
+          svi += 4;
+        }
+      }
+    }
+  }
+
+  uploadMesh(chunk.solid, sv, si);
+  uploadMesh(chunk.plant, pv, pi);
+  uploadMesh(chunk.water, wv, wi);
+  chunk.dirty = false;
+  chunk.built = true;
+}
+
+/* ============================================================
+   7. 選択枠 / アイテム / モブのモデル
+   ============================================================ */
+const boxVao = gl.createVertexArray();
+{
+  const e = 0.002, a = -e, b = 1 + e;
+  const p = [[a,a,a],[b,a,a],[b,a,b],[a,a,b],[a,b,a],[b,b,a],[b,b,b],[a,b,b]];
+  const E = [0,1, 1,2, 2,3, 3,0, 4,5, 5,6, 6,7, 7,4, 0,4, 1,5, 2,6, 3,7];
+  const arr = [];
+  for (const i of E) arr.push(p[i][0], p[i][1], p[i][2]);
+  gl.bindVertexArray(boxVao);
+  const vb = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+  gl.bindVertexArray(null);
+}
+
+// 直方体を頂点配列に焼き込む（座標は 1/16 ブロック単位、pivot を原点にする）
+function pushBox(verts, inds, box, layers, pivot) {
+  const [x0, y0, z0, x1, y1, z1] = box;
+  const S = 1 / 16;
+  const px = pivot[0], py = pivot[1], pz = pivot[2];
+  let vi = verts.length / 7;
+  for (let f = 0; f < 6; f++) {
+    const F = FACES[f];
+    for (let v = 0; v < 4; v++) {
+      const c = F.corners[v], uv = UVS[v];
+      const X = (c[0] ? x1 : x0) - px, Y = (c[1] ? y1 : y0) - py, Z = (c[2] ? z1 : z0) - pz;
+      verts.push(X * S, Y * S, Z * S, uv[0], uv[1], layers[f], FACE_SHADE[f] * 0.5 + 0.5);
+    }
+    inds.push(vi, vi+1, vi+2, vi, vi+2, vi+3);
+    vi += 4;
+  }
+}
+function makePartMesh(boxes) {
+  const verts = [], inds = [];
+  for (const b of boxes) pushBox(verts, inds, b.box, b.layers, b.pivot || [0, 0, 0]);
+  const m = { vao:null, vbo:null, ibo:null, count:0 };
+  uploadMesh(m, verts, inds);
+  return m;
+}
+const L = (a) => [a, a, a, a, a, a];                 // 全面同じテクスチャ
+const LFACE = (a, face) => [a, a, a, a, a, face];    // -Z 面だけ別（顔）
+
+// 見た目ひとつ分（胴体＋動く手足）をメッシュにする
+function makeVariant(bodyBoxes, limbs) {
+  return {
+    body: makePartMesh(bodyBoxes),
+    limbs: limbs.map(l => ({
+      mesh: makePartMesh(l.boxes),
+      pivot: l.pivot,
+      phase: l.phase || 0,
+      base: l.base || 0,
+      axis: l.axis || "x",
+      amp: l.amp,
+      hand: !!l.hand,
+      liftAmp: l.liftAmp || 0,     // 足を踏み出すときに少し持ち上げる（クモの脚など）
+    })),
+  };
+}
+// 頭のボックス（headIdx 番目）の顔だけをまばたき用のテクスチャに差し替えた、もう1つの胴体メッシュを追加する
+function withBlinkBody(variant, bodyBoxes, headIdx, blinkFace) {
+  const blinkBoxes = bodyBoxes.map((b, i) =>
+    i === headIdx ? { box: b.box, layers: [...b.layers.slice(0, 5), blinkFace] } : b);
+  variant.blinkBody = makePartMesh(blinkBoxes);
+  return variant;
+}
+const PIG_LEG = [{ box:[-2,-6,-2, 2, 0, 2], layers: L(T_PIG) }];
+const HEN_LEG = [{ box:[-1,-5,-1, 1, 0, 1], layers: L(T_ORANGE) }];
+const PI2 = Math.PI;
+
+// イカの足（10本：本物のイカと同じく、短い腕 8 本＋長い触腕 2 本を輪になるよう配置）
+function squidLegs() {
+  const legs = [];
+  const N = 10;
+  for (let i = 0; i < N; i++) {
+    const ang = (i / N) * Math.PI * 2;
+    const rx = Math.round(Math.cos(ang) * 3.2), rz = Math.round(Math.sin(ang) * 3.2);
+    const long = (i % 5 === 0);                       // 10 本のうち 2 本（正面と背面）は長い触腕
+    const len = long ? 15 : 8;
+    legs.push({
+      boxes: [{ box:[-1, -len, -1, 1, 0, 1], layers: L(T_SQUID) }],
+      pivot: [rx, 6, rz], phase: (i % 2) * Math.PI + ang, axis:"y", amp: long ? 0.45 : 0.3,
+    });
+  }
+  return legs;
+}
+
+const COW_BODY = [
+  { box:[-6,10,-10, 6,20,10], layers: L(T_COW) },                        // 胴
+  { box:[-4,15,-16, 4,23,-10], layers: LFACE(T_COW, T_COW_FACE) },       // 頭
+  { box:[-3,15,-17, 3,19,-16], layers: L(T_COW_SNOUT) },                 // 鼻先
+  { box:[-6,21,-15,-4,23,-13], layers: L(T_COW_HORN) },                  // 角
+  { box:[ 4,21,-15, 6,23,-13], layers: L(T_COW_HORN) },
+  { box:[-5,20,-14,-3,22,-12], layers: L(T_COW) },                       // 耳
+  { box:[ 3,20,-14, 5,22,-12], layers: L(T_COW) },
+  { box:[-2, 8,  4, 2,10,  8], layers: L(T_COW_UDDER) },                 // 乳房
+];
+const PIG_BODY = [
+  { box:[-5, 6, -8, 5, 14, 8], layers: L(T_PIG) },                     // 胴
+  { box:[-4, 6,-11, 4, 14,-8], layers: LFACE(T_PIG, T_PIG_FACE) },     // 頭
+  { box:[-2, 7,-12, 2, 10,-11], layers: L(T_PIG_SNOUT) },              // 鼻
+  { box:[-4,14,-11,-1, 17, -9], layers: L(T_PIG) },                    // 左耳
+  { box:[ 1,14,-11, 4, 17, -9], layers: L(T_PIG) },                    // 右耳
+];
+const MOBS = {
+  pig: {
+    name: "ブタ", hp: 20, hw: 0.45, height: 0.9, speed: 1.15, hostile: false,
+    variants: [ withBlinkBody(makeVariant(PIG_BODY, [
+      { boxes: PIG_LEG, pivot:[-3,6,-5], phase: 0 },
+      { boxes: PIG_LEG, pivot:[ 3,6,-5], phase: PI2 },
+      { boxes: PIG_LEG, pivot:[-3,6, 5], phase: PI2 },
+      { boxes: PIG_LEG, pivot:[ 3,6, 5], phase: 0 },
+    ]), PIG_BODY, 1, T_PIG_FACE_BLINK) ],
+  },
+  chicken: {
+    name: "ニワトリ", hp: 3, hw: 0.25, height: 0.85, speed: 1.35, hostile: false,
+    variants: [ makeVariant([
+      { box:[-3, 5, -3, 3, 11, 4], layers: L(T_CHICKEN) },                     // 胴
+      { box:[-2, 10, -5, 2, 14,-1], layers: LFACE(T_CHICKEN, T_CHICKEN_FACE) },// 頭
+      { box:[-1, 11, -7, 1, 13,-5], layers: L(T_ORANGE) },                     // くちばし
+      { box:[-1, 14, -4, 1, 16,-1], layers: L(T_RED) },                        // とさか
+      { box:[-4, 6, -2,-3, 11, 2], layers: L(T_CHICKEN) },                     // 翼
+      { box:[ 3, 6, -2, 4, 11, 2], layers: L(T_CHICKEN) },
+    ], [
+      { boxes: HEN_LEG, pivot:[-2,5,0], phase: 0 },
+      { boxes: HEN_LEG, pivot:[ 2,5,0], phase: PI2 },
+    ]) ],
+  },
+  cow: {
+    name: "牛", hp: 20, hw: 0.45, height: 1.4, speed: 0.95, hostile: false,
+    variants: [ withBlinkBody(makeVariant(COW_BODY, [
+      { boxes:[{ box:[-2,-10,-2, 2, 0, 2], layers: L(T_COW) }], pivot:[-4,10,-7], phase: 0 },
+      { boxes:[{ box:[-2,-10,-2, 2, 0, 2], layers: L(T_COW) }], pivot:[ 4,10,-7], phase: Math.PI },
+      { boxes:[{ box:[-2,-10,-2, 2, 0, 2], layers: L(T_COW) }], pivot:[-4,10, 7], phase: Math.PI },
+      { boxes:[{ box:[-2,-10,-2, 2, 0, 2], layers: L(T_COW) }], pivot:[ 4,10, 7], phase: 0 },
+    ]), COW_BODY, 1, T_COW_FACE_BLINK) ],
+  },
+  fish: {
+    name: "金魚", hp: 2, hw: 0.18, height: 0.3, speed: 1.7, hostile: false, aquatic: true,
+    variants: [ makeVariant([
+      { box:[-2, 0, -5, 2, 4, 3],                                          // 体（目は左右の面に）
+        layers: [T_FISH_EYE_R, T_FISH_EYE_L, T_FISH, T_FISH, T_FISH, T_FISH] },
+      { box:[-1, 4, -2, 1, 6, 2], layers: L(T_FISH_FIN) },               // 背びれ
+    ], [
+      { boxes:[{ box:[0,-2,0, 0, 2, 3], layers: L(T_FISH_FIN) }],        // 尾びれ（左右に振れる）
+        pivot:[0,2,3], phase: 0, axis:"y", amp: 0.6 },
+    ]) ],
+  },
+  zombie: {
+    name: "ゾンビ", hp: 20, hw: 0.3, height: 1.95, speed: 1.5, hostile: true, atk: 3,
+    variants: ZOMBIE_SKINS.map(z => makeVariant([
+      { box:[-4,12,-2, 4,24, 2], layers: L(z.tShirt) },                    // 胴
+      { box:[-4,24,-4, 4,32, 4], layers: LFACE(z.tSkin, z.tFace) },        // 頭
+    ], [
+      { boxes:[{ box:[-2,-12,-2, 2, 0, 2], layers: L(z.tPants) }], pivot:[-2,12,0], phase: 0 },
+      { boxes:[{ box:[-2,-12,-2, 2, 0, 2], layers: L(z.tPants) }], pivot:[ 2,12,0], phase: PI2 },
+      // 腕は前に突き出す（base = 90°）
+      { boxes:[{ box:[-2,-6,-2, 2, 2, 2], layers: L(z.tShirt) },
+               { box:[-2,-10,-2, 2,-6, 2], layers: L(z.tSkin) }],
+        pivot:[-6,22,0], phase: PI2, base: Math.PI / 2 },
+      { boxes:[{ box:[-2,-6,-2, 2, 2, 2], layers: L(z.tShirt) },
+               { box:[-2,-10,-2, 2,-6, 2], layers: L(z.tSkin) }],
+        pivot:[ 6,22,0], phase: 0, base: Math.PI / 2, hand: true },
+    ])),
+  },
+  spider: {
+    name: "クモ", hp: 18, hw: 0.65, height: 0.75, speed: 2.0, hostile: true, atk: 3,
+    variants: [makeVariant([
+      { box:[-7, 2, -6, 7, 8, 6], layers: L(T_SPIDER) },                          // 胴
+      { box:[-4, 2,-11, 4, 8,-6], layers: LFACE(T_SPIDER, T_SPIDER_EYE) },        // 頭
+    ], [
+      // axis:"y" で脚が体の横から前後に水平に振れる（実際のクモの歩き方に近い動き）
+      // liftAmp で踏み出す側の脚を少し持ち上げ、足踏みらしく見せる
+      { boxes:[{ box:[-10,-1,-1, 0, 1, 1], layers: L(T_SPIDER) }], pivot:[-7,5,-5], phase: 0,   amp: 0.5, axis:"y", liftAmp: 0.35 },
+      { boxes:[{ box:[  0,-1,-1,10, 1, 1], layers: L(T_SPIDER) }], pivot:[ 7,5,-5], phase: PI2, amp: 0.5, axis:"y", liftAmp: 0.35 },
+      { boxes:[{ box:[-10,-1,-1, 0, 1, 1], layers: L(T_SPIDER) }], pivot:[-7,5,-2], phase: PI2, amp: 0.5, axis:"y", liftAmp: 0.35 },
+      { boxes:[{ box:[  0,-1,-1,10, 1, 1], layers: L(T_SPIDER) }], pivot:[ 7,5,-2], phase: 0,   amp: 0.5, axis:"y", liftAmp: 0.35 },
+      { boxes:[{ box:[-10,-1,-1, 0, 1, 1], layers: L(T_SPIDER) }], pivot:[-7,5, 1], phase: 0,   amp: 0.5, axis:"y", liftAmp: 0.35 },
+      { boxes:[{ box:[  0,-1,-1,10, 1, 1], layers: L(T_SPIDER) }], pivot:[ 7,5, 1], phase: PI2, amp: 0.5, axis:"y", liftAmp: 0.35 },
+      { boxes:[{ box:[-10,-1,-1, 0, 1, 1], layers: L(T_SPIDER) }], pivot:[-7,5, 4], phase: PI2, amp: 0.5, axis:"y", liftAmp: 0.35 },
+      { boxes:[{ box:[  0,-1,-1,10, 1, 1], layers: L(T_SPIDER) }], pivot:[ 7,5, 4], phase: 0,   amp: 0.5, axis:"y", liftAmp: 0.35 },
+    ])],
+  },
+  squid: {
+    name: "イカ", hp: 16, hw: 0.32, height: 0.85, speed: 1.5, hostile: false, atk: 0, aquatic: true,
+    variants: [ makeVariant([
+      { box:[-4, 6, -4, 4, 17, 4], layers: L(T_SQUID) },                     // 外套膜（下）
+      { box:[-2, 17, -2, 2, 21, 2], layers: L(T_SQUID) },                    // 外套膜（先端、とがった部分）
+      { box:[-6, 9, -1, -4, 13, 1], layers: L(T_SQUID_FIN) },                // 左ひれ
+      { box:[ 4, 9, -1,  6, 13, 1], layers: L(T_SQUID_FIN) },                // 右ひれ
+    ], squidLegs()) ],
+  },
+  shark: {
+    name: "サメ", hp: 35, hw: 1.5, height: 2.1, scale: 2, speed: 2.3, hostile: true, atk: 6, aquatic: true,
+    variants: [ makeVariant([
+      { box:[-6, 2,-16, 6, 15, 10],
+        layers: [T_SHARK, T_SHARK, T_SHARK, T_SHARK_BELLY, T_SHARK, T_SHARK] },  // 胴（腹は明るい色）
+      { box:[-1, 15, -6, 1, 22, 0], layers: L(T_SHARK_FIN) },                    // 背びれ
+      { box:[-7, 9,-14,-6, 11,-12], layers: L(T_SHARK_EYE) },                    // 左目
+      { box:[ 6, 9,-14, 7, 11,-12], layers: L(T_SHARK_EYE) },                    // 右目
+      { box:[-3, 2,-17, 3, 4,-14], layers: L(T_SHARK_MOUTH) },                   // 口（歯）
+    ], [
+      // 尾びれ：金魚と同じく、薄い板を胴の後端にぴったりつけて左右に振る
+      { boxes:[{ box:[0,-5, 0, 0, 6, 9], layers: L(T_SHARK_FIN) }],
+        pivot:[0, 8, 10], phase: 0, axis:"y", amp: 0.5 },
+    ]) ],
+  },
+};
+
+// ドット絵を 1 ピクセル = 1 立方体として押し出し、立体の道具にする
+function buildExtruded(layer, depthPx) {
+  const px = tiles[layer];
+  const op = (x, y) => (x < 0 || y < 0 || x > 15 || y > 15) ? 0 : px[(y * 16 + x) * 4 + 3];
+  const S = 1 / 16, d = (depthPx || 2) * S / 2;
+  const verts = [], inds = [];
+  let vi = 0;
+  const quad = (pts, u, v, sh) => {
+    for (let k = 0; k < 4; k++) verts.push(pts[k][0], pts[k][1], pts[k][2], u, v, layer, sh);
+    inds.push(vi, vi+1, vi+2, vi, vi+2, vi+3); vi += 4;
+  };
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    if (!op(x, y)) continue;
+    const u = (x + 0.5) / 16, v = (y + 0.5) / 16;
+    const x0 = (x - 8) * S, x1 = (x - 7) * S;
+    const y0 = (7 - y) * S, y1 = (8 - y) * S;
+    const z0 = -d, z1 = d;
+    quad([[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]], u, v, 1.0);    // 手前
+    quad([[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0]], u, v, 0.80);   // 奥
+    if (!op(x+1, y)) quad([[x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1]], u, v, 0.88);
+    if (!op(x-1, y)) quad([[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0]], u, v, 0.88);
+    if (!op(x, y-1)) quad([[x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0]], u, v, 1.0);
+    if (!op(x, y+1)) quad([[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1]], u, v, 0.66);
+  }
+  const m = { vao:null, vbo:null, ibo:null, count:0 };
+  uploadMesh(m, verts, inds);
+  return m;
+}
+const extruded = {};
+function extrudedMesh(id) {
+  if (!extruded[id]) extruded[id] = buildExtruded(ITEM_TEX[id], 2);
+  return extruded[id];
+}
+
+// プレイヤーの体（男 / 女）
+const PLAYER_MODELS = PLAYER_SKINS.map(z => {
+  const body = [
+    { box:[-4,12,-2, 4,24, 2], layers: L(z.tShirt) },                 // 胴
+    { box:[-4,24,-4, 4,32, 4], layers: LFACE(z.tSkin, z.tFace) },     // 頭
+    // 髪：顔（-Z）と底だけ描かないことで、後頭部と側面を覆う
+    { box:[-4.25,23.8,-4.25, 4.25,32.5, 4.25],
+      layers: [z.tHair, z.tHair, z.tHair, T_EMPTY, z.tHair, T_EMPTY] },
+  ];
+  if (z.longHair) body.push({ box:[-4.3,17,3.6, 4.3,29,4.8], layers: L(z.tHair) });     // 後ろ髪
+  const arm = [{ box:[-2,-4,-2, 2, 2, 2], layers: L(z.tShirt) },
+               { box:[-2,-10,-2, 2,-4, 2], layers: L(z.tSkin) }];
+  // 脚：ズボン部分とブーツ部分（下側）を分けて、しっかりした見た目にする
+  const leg = [{ box:[-2,-12,-2, 2,-3, 2], layers: L(z.tPants) },
+               { box:[-2, -3,-2, 2, 0, 2], layers: L(T_BOOT) }];
+  return withBlinkBody(makeVariant(body, [
+    { boxes: leg, pivot:[-2,12,0], phase: 0 },
+    { boxes: leg, pivot:[ 2,12,0], phase: Math.PI },
+    { boxes: arm, pivot:[-6,22,0], phase: Math.PI },
+    { boxes: arm, pivot:[ 6,22,0], phase: 0, hand: true },
+  ]), body, 1, z.tFaceBlink);
+});
+let playerVariant = 0;
+let playerWalk = 0;
+
+const itemMeshes = {};
+function buildItemMesh(b) {
+  const verts = [], inds = [];
+  let vi = 0;
+  if (isPlant(b) || isItem(b)) {
+    const layer = isItem(b) ? ITEM_TEX[b] : PLANT_TEX[b];
+    const quads = [
+      [[-0.5,-0.5,-0.5],[0.5,-0.5,0.5],[0.5,0.5,0.5],[-0.5,0.5,-0.5]],
+      [[0.5,-0.5,-0.5],[-0.5,-0.5,0.5],[-0.5,0.5,0.5],[0.5,0.5,-0.5]],
+    ];
+    for (const q of quads) {
+      for (let v = 0; v < 4; v++) {
+        const c = q[v], uv = UVS[v];
+        verts.push(c[0], c[1], c[2], uv[0], uv[1], layer, 1.0);
+      }
+      inds.push(vi, vi+1, vi+2, vi, vi+2, vi+3); vi += 4;
+    }
+  } else {
+    const texSet = BLOCK_TEX[b];
+    for (let f = 0; f < 6; f++) {
+      const F = FACES[f];
+      for (let v = 0; v < 4; v++) {
+        const c = F.corners[v], uv = UVS[v];
+        verts.push(c[0]-0.5, c[1]-0.5, c[2]-0.5, uv[0], uv[1], texSet[f], FACE_SHADE[f]);
+      }
+      inds.push(vi, vi+1, vi+2, vi, vi+2, vi+3); vi += 4;
+    }
+  }
+  const m = { vao:null, vbo:null, ibo:null, count:0 };
+  uploadMesh(m, verts, inds);
+  return m;
+}
+function itemMesh(b) {
+  if (isItem(b)) return extrudedMesh(b);        // 道具は立体
+  if (!itemMeshes[b]) itemMeshes[b] = buildItemMesh(b);
+  return itemMeshes[b];
+}
+// 手に持つとき用の 1 枚板（十字だと重なって見えるため）
+const flatMeshes = {};
+function flatMesh(b) {
+  if (flatMeshes[b]) return flatMeshes[b];
+  const layer = isItem(b) ? ITEM_TEX[b] : PLANT_TEX[b];
+  const P = [[-0.5,-0.5,0],[0.5,-0.5,0],[0.5,0.5,0],[-0.5,0.5,0]];
+  const v = [];
+  for (let k = 0; k < 4; k++) v.push(P[k][0], P[k][1], P[k][2], UVS[k][0], UVS[k][1], layer, 1.0);
+  const m = { vao:null, vbo:null, ibo:null, count:0 };
+  uploadMesh(m, v, [0,1,2, 0,2,3]);
+  flatMeshes[b] = m;
+  return m;
+}
+
+// ---- 落ち葉パーティクル：葉ブロックから時々ひらひらと落ちる小さな葉 ----
+const leafParticleMesh = (function () {
+  const P = [[-0.5,-0.5,0],[0.5,-0.5,0],[0.5,0.5,0],[-0.5,0.5,0]];
+  const v = [];
+  for (let k = 0; k < 4; k++) v.push(P[k][0], P[k][1], P[k][2], UVS[k][0], UVS[k][1], T_LEAF_PARTICLE, 1.0);
+  const m = { vao:null, vbo:null, ibo:null, count:0 };
+  uploadMesh(m, v, [0,1,2, 0,2,3]);
+  return m;
+})();
+const leafParticles = [];
+let leafSpawnTimer = 0;
+function updateLeafParticles(dt) {
+  leafSpawnTimer -= dt;
+  if (leafSpawnTimer <= 0 && leafParticles.length < 40) {
+    leafSpawnTimer = 0.15;
+    for (let tries = 0; tries < 5; tries++) {
+      const x = Math.floor(player.x) + ((Math.random() * 26) | 0) - 13;
+      const z = Math.floor(player.z) + ((Math.random() * 26) | 0) - 13;
+      const y = Math.floor(player.y) + ((Math.random() * 14) | 0) - 5;
+      if (getBlock(x, y, z) !== LEAVES) continue;
+      leafParticles.push({
+        x: x + Math.random(), y: y + Math.random() * 0.6, z: z + Math.random(),
+        vx: (Math.random() - 0.5) * 0.35, vy: -0.30 - Math.random() * 0.25, vz: (Math.random() - 0.5) * 0.35,
+        rot: Math.random() * 6.283, rotSpeed: (Math.random() - 0.5) * 2.6,
+        swayPhase: Math.random() * 6.283, life: 0, maxLife: 3 + Math.random() * 2.5,
+      });
+      break;
+    }
+  }
+  for (let i = leafParticles.length - 1; i >= 0; i--) {
+    const p = leafParticles[i];
+    p.life += dt;
+    p.swayPhase += dt * 3;
+    p.x += (p.vx + Math.sin(p.swayPhase) * 0.25) * dt;
+    p.y += p.vy * dt;
+    p.z += (p.vz + Math.cos(p.swayPhase * 0.8) * 0.25) * dt;
+    p.rot += p.rotSpeed * dt;
+    // 葉ブロック自体も isSolid 判定になるため、地面などに当たったかは寿命の残り時間だけで判定する
+    if (p.life >= p.maxLife) {
+      leafParticles.splice(i, 1);
+    }
+  }
+}
+function drawLeafParticles() {
+  for (const p of leafParticles) {
+    trsY(matModel, p.x, p.y, p.z, p.rot, 0.16);
+    gl.uniformMatrix4fv(U.model, false, matModel);
+    gl.bindVertexArray(leafParticleMesh.vao);
+    gl.drawElements(gl.TRIANGLES, leafParticleMesh.count, gl.UNSIGNED_INT, 0);
+  }
+}
+
+/* ---- 太陽・月（カメラの方を向く板） ---- */
+function makeSkyQuad(layer) {
+  const v = [], i = [0,1,2, 0,2,3];
+  const P = [[-0.5,-0.5,0],[0.5,-0.5,0],[0.5,0.5,0],[-0.5,0.5,0]];
+  for (let k = 0; k < 4; k++) v.push(P[k][0], P[k][1], 0, UVS[k][0], UVS[k][1], layer, 1.0);
+  const m = { vao:null, vbo:null, ibo:null, count:0 };
+  uploadMesh(m, v, i);
+  return m;
+}
+const sunMesh = makeSkyQuad(T_SUN);
+const moonMesh = makeSkyQuad(T_MOON);
+
+/* ---- 雲（高いところに浮かぶ板の集まり） ---- */
+const cloudMesh = (function () {
+  const G = CLOUD_GRID, C = CLOUD_CELL, TH = 4;         // TH = 雲の厚み
+  const map = new Uint8Array(G * G);
+  const vals = new Float32Array(G * G);
+  for (let a = 0; a < G; a++) for (let b = 0; b < G; b++) {
+    // 大小のノイズを重ねて、ちぎれた雲のかたまりを作る
+    vals[a * G + b] = noise2(a / 5.5 + 11.3, b / 5.5 - 4.7) * 0.65
+                    + noise2(a / 2.1 - 30.2, b / 2.1 + 17.9) * 0.35;
+  }
+  // 空の約 38% が雲になるように、しきい値を値の分布から決める
+  const sorted = Float32Array.from(vals).sort();
+  const thresh = sorted[Math.floor(sorted.length * 0.62)];
+  for (let i = 0; i < vals.length; i++) map[i] = vals[i] > thresh ? 1 : 0;
+  const at = (a, b) => (a < 0 || b < 0 || a >= G || b >= G) ? 0 : map[a * G + b];
+  const verts = [], inds = [];
+  let vi = 0;
+  const half = (G * C) / 2;
+  for (let a = 0; a < G; a++) for (let b = 0; b < G; b++) {
+    if (!map[a * G + b]) continue;
+    const x0 = a * C - half, x1 = x0 + C;
+    const z0 = b * C - half, z1 = z0 + C;
+    const y0 = 0, y1 = TH;
+    const quad = (pts, shadeV) => {
+      for (let k = 0; k < 4; k++) {
+        verts.push(pts[k][0], pts[k][1], pts[k][2], UVS[k][0] * 2, UVS[k][1] * 2, T_CLOUD, shadeV);
+      }
+      inds.push(vi, vi+1, vi+2, vi, vi+2, vi+3); vi += 4;
+    };
+    quad([[x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0]], 1.0);      // 上
+    quad([[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1]], 0.72);     // 下
+    if (!at(a + 1, b)) quad([[x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1]], 0.86);
+    if (!at(a - 1, b)) quad([[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0]], 0.86);
+    if (!at(a, b + 1)) quad([[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]], 0.92);
+    if (!at(a, b - 1)) quad([[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0]], 0.92);
+  }
+  const m = { vao:null, vbo:null, ibo:null, count:0 };
+  uploadMesh(m, verts, inds);
+  return m;
+})();
+
+/* ============================================================
+   7.5 昼と夜
+   ============================================================ */
+let viewMode = 0;                 // 0=一人称 1=三人称(後ろ) 2=三人称(前)
+const cam = { x:0, y:0, z:0, yaw:0, pitch:0 };
+function updateCamera() {
+  const ex = player.x, ey = player.y + EYE, ez = player.z;
+  if (viewMode === 0) {
+    cam.x = ex; cam.y = ey; cam.z = ez; cam.yaw = player.yaw; cam.pitch = player.pitch;
+    return;
+  }
+  const back = viewMode === 1 ? -1 : 1;
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  const dx = -Math.sin(player.yaw) * cp, dy = sp, dz = -Math.cos(player.yaw) * cp;
+  let dist = 4.0;
+  for (let t = 0.4; t <= 4.0; t += 0.2) {            // 壁にめり込まないよう縮める
+    const px = ex + dx * back * t, py = ey + dy * back * t, pz = ez + dz * back * t;
+    if (isSolid(getBlock(Math.floor(px), Math.floor(py), Math.floor(pz)))) { dist = Math.max(0.7, t - 0.3); break; }
+  }
+  cam.x = ex + dx * back * dist;
+  cam.y = ey + dy * back * dist;
+  cam.z = ez + dz * back * dist;
+  cam.yaw = viewMode === 1 ? player.yaw : player.yaw + Math.PI;
+  cam.pitch = viewMode === 1 ? player.pitch : -player.pitch;
+}
+
+let dayTime = 0.04;              // 0 = 日の出、0.25 = 真昼、0.5 = 日の入り、0.75 = 真夜中
+const sky = {
+  sunAlt: 0, light: 1, isNight: false,
+  color: SKY.slice(), sunDir: [0, 1, 0], lightRGB: new Float32Array([1, 1, 1]),
+  top: SKY_TOP_DAY.slice(), horizon: SKY_HOR_DAY.slice(), glowAmt: 0,
+};
+function mix3(a, b, t) {
+  return [a[0] + (b[0]-a[0])*t, a[1] + (b[1]-a[1])*t, a[2] + (b[2]-a[2])*t];
+}
+function smoothstep(e0, e1, x) {
+  const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+}
+function updateSky(dt) {
+  dayTime = (dayTime + dt / DAY_LENGTH) % 1;
+  const a = dayTime * Math.PI * 2;
+  const alt = Math.sin(a);
+  const dx = -Math.cos(a), dz = 0.28;
+  const len = Math.hypot(dx, alt, dz);
+  sky.sunAlt = alt;
+  sky.sunDir = [dx / len, alt / len, dz / len];
+
+  const f = smoothstep(-0.14, 0.16, alt);              // 0 = 夜, 1 = 昼
+  const l = 0.26 + 0.74 * f;
+  sky.light = l;
+  sky.isNight = alt < -0.04;
+  const horizon = Math.max(0, 1 - Math.abs(alt) / 0.30);
+  // 空の色は明るさより遅れて暗くなる（日が沈みきるまで青さが残る）
+  const fSky = smoothstep(-0.22, 0.03, alt);
+  sky.top = mix3(SKY_TOP_NIGHT, SKY_TOP_DAY, fSky);
+  sky.horizon = mix3(SKY_HOR_NIGHT, SKY_HOR_DAY, fSky);
+  sky.glowAmt = horizon * 0.85;
+  sky.color = sky.horizon;                              // 霧は地平線の色に合わせる
+  // 朝焼け・夕焼けのときは光も少し暖色に寄せる
+  sky.lightRGB[0] = l * (1 + horizon * 0.10);
+  sky.lightRGB[1] = l * (1 - horizon * 0.06);
+  sky.lightRGB[2] = l * (1 - horizon * 0.16);
+}
+function timeLabel() {
+  const t = dayTime;
+  if (t < 0.06) return "朝";
+  if (t < 0.44) return "昼";
+  if (t < 0.56) return "夕方";
+  if (t < 0.94) return "夜";
+  return "明け方";
+}
+
+/* ============================================================
+   8. インベントリ
+   ============================================================ */
+const INV_SIZE = 36;
+const CHEST_SIZE = 9;
+const chests = new Map();          // "x,y,z" -> スロットの配列
+const chestKey = (x, y, z) => x + "," + y + "," + z;
+function chestAt(x, y, z, create) {
+  const k = chestKey(x, y, z);
+  let c = chests.get(k);
+  if (!c && create) { c = new Array(CHEST_SIZE).fill(null); chests.set(k, c); }
+  return c;
+}
+const inv = new Array(INV_SIZE).fill(null);
+let selIdx = 0;
+let held = null;
+
+// ---- 防具（頭/胸/脚/足の 4 部位） ----
+const armor = [null, null, null, null];
+const ARMOR_SLOT_ITEM = [ITEM_HELMET, ITEM_CHESTPLATE, ITEM_LEGGINGS, ITEM_BOOTS];
+function totalDefense() { return armor.reduce((s, a) => s + (a ? ARMOR_DEFENSE : 0), 0); }
+
+const TOOL_ITEMS = new Set([ITEM_SWORD, ITEM_BOW, ITEM_PICKAXE, ITEM_AXE, ITEM_WOOD_SWORD]);  // まとめられない道具
+function addItem(id, n) {
+  const max = TOOL_ITEMS.has(id) ? 1 : STACK_MAX;
+  let left = n;
+  for (let i = 0; i < INV_SIZE && left > 0; i++) {
+    const s = inv[i];
+    if (s && s.id === id && s.count < max) {
+      const add = Math.min(max - s.count, left);
+      s.count += add; left -= add;
+    }
+  }
+  for (let i = 0; i < INV_SIZE && left > 0; i++) {
+    if (!inv[i]) {
+      const add = Math.min(max, left);
+      inv[i] = { id, count: add, ...(id === ITEM_SWORD ? {uses:0} : {}) }; left -= add;
+    }
+  }
+  refreshUI();
+  return n - left;
+}
+function takeSelected() {
+  const s = inv[selIdx];
+  if (!s) return 0;
+  s.count--;
+  if (s.count <= 0) inv[selIdx] = null;
+  refreshUI();
+  return 1;
+}
+
+/* ============================================================
+   9. 落下アイテム
+   ============================================================ */
+const drops = [];
+const MAX_DROPS = 260;
+function spawnDrop(x, y, z, id) {
+  if (drops.length >= MAX_DROPS) drops.shift();
+  drops.push({ x, y, z, id,
+    vx:(Math.random()-0.5)*1.6, vy:2.4+Math.random()*0.7, vz:(Math.random()-0.5)*1.6,
+    age:0, phase:Math.random()*6.283 });
+}
+function updateDrops(dt) {
+  const px = player.x, py = player.y + 0.9, pz = player.z;
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const it = drops[i];
+    it.age += dt;
+    const inWater = isWater(getBlock(Math.floor(it.x), Math.floor(it.y + 0.1), Math.floor(it.z)));
+    it.vy -= (inWater ? 5 : 22) * dt;
+    if (inWater && it.vy < -1.2) it.vy = -1.2;
+
+    const nx = it.x + it.vx * dt, nz = it.z + it.vz * dt;
+    if (!isSolid(getBlock(Math.floor(nx), Math.floor(it.y + 0.1), Math.floor(it.z)))) it.x = nx; else it.vx = 0;
+    if (!isSolid(getBlock(Math.floor(it.x), Math.floor(it.y + 0.1), Math.floor(nz)))) it.z = nz; else it.vz = 0;
+
+    let ny = it.y + it.vy * dt;
+    if (it.vy < 0 && isSolid(getBlock(Math.floor(it.x), Math.floor(ny), Math.floor(it.z)))) {
+      ny = Math.floor(ny) + 1; it.vy = 0; it.vx *= 0.55; it.vz *= 0.55;
+    }
+    it.y = ny;
+    if (it.y < -20) { drops.splice(i, 1); continue; }
+
+    if (it.age > 0.35) {
+      const dx = px - it.x, dy = py - (it.y + 0.15), dz = pz - it.z;
+      const d2 = dx*dx + dy*dy + dz*dz;
+      if (d2 < 2.6 * 2.6) {
+        const d = Math.sqrt(d2) || 1, pull = 9 * dt;
+        it.x += dx / d * pull; it.y += dy / d * pull; it.z += dz / d * pull;
+        it.vx *= 0.6; it.vz *= 0.6;
+        if (d < 0.8 && addItem(it.id, 1) > 0) {
+          showToast(BLOCK_NAME[it.id]);
+          drops.splice(i, 1);
+        }
+      }
+    }
+  }
+}
+
+/* ============================================================
+   10. 当たり判定の共通処理
+   ============================================================ */
+function boxCollides(px, py, pz, hw, ht) {
+  const x0 = Math.floor(px - hw), x1 = Math.floor(px + hw);
+  const y0 = Math.floor(py),      y1 = Math.floor(py + ht - 0.001);
+  const z0 = Math.floor(pz - hw), z1 = Math.floor(pz + hw);
+  for (let x = x0; x <= x1; x++)
+    for (let y = y0; y <= y1; y++)
+      for (let z = z0; z <= z1; z++)
+        if (isSolid(getBlock(x, y, z))) return true;
+  return false;
+}
+
+/* ============================================================
+   11. プレイヤー
+   ============================================================ */
+const PW = 0.3, PH = 1.8, EYE = 1.62;
+const PLAYER_MAX_HP = 20;        // ハート 10 個ぶん（1 個 = 2）
+const REGEN_FULL_SEC = 30;       // 減ったぶんは 30 秒かけて全部戻る
+const SPAWN_PT = findLandSpawn();
+const player = { x:SPAWN_PT.x + 0.5, y:0, z:SPAWN_PT.z + 0.5, vx:0, vy:0, vz:0, yaw:0, pitch:0,
+                 onGround:false, inWater:false, hp:PLAYER_MAX_HP, safeTime:99, boost:0, flying:false, dashing:false };
+player.y = terrainHeight(SPAWN_PT.x, SPAWN_PT.z) + 2;
+const keys = Object.create(null);
+
+// ---- プレイヤーの、時折まばたきする瞳 ----
+let playerBlinking = false, playerBlinkTimer = 1.5 + Math.random() * 5;
+function updatePlayerBlink(dt) {
+  playerBlinkTimer -= dt;
+  if (playerBlinkTimer <= 0) {
+    playerBlinking = !playerBlinking;
+    playerBlinkTimer = playerBlinking ? 0.12 : (2 + Math.random() * 5);
+  }
+}
+
+// ---- ゲームモード（サバイバル / クリエイティブ） ----
+let gameMode = "survival";
+let lastSpaceTime = -999;
+const CREATIVE_KIT = [GRASS, DIRT, STONE, PLANKS, LOG, SAND, CACTUS, TABLE, CHEST,
+  COAL_ORE, TORCH, ITEM_BOW, ITEM_ARROW, ITEM_PICKAXE, ITEM_AXE, ITEM_WOOD_SWORD,
+  ITEM_EGG_PIG, ITEM_EGG_COW, ITEM_EGG_CHICKEN, ITEM_EGG_ZOMBIE,
+  ITEM_EGG_SPIDER, ITEM_EGG_GOLDFISH, ITEM_EGG_SQUID, ITEM_EGG_SHARK];
+function setGameMode(mode) {
+  gameMode = mode;
+  if (mode === "creative") {
+    for (let i = 0; i < CREATIVE_KIT.length; i++) {
+      if (!inv[i]) {
+        const cid = CREATIVE_KIT[i];
+        inv[i] = { id: cid, count: TOOL_ITEMS.has(cid) ? 1 : STACK_MAX };
+      }
+    }
+    refreshUI();
+  } else {
+    player.flying = false;
+  }
+  showToast(mode === "creative" ? "クリエイティブモード" : "サバイバルモード");
+}
+
+function damagePlayer(n, fromX, fromZ) {
+  if (gameMode === "creative") return;       // クリエイティブは無敵
+  if (player.hp <= 0) return;
+  n *= Math.max(0, 1 - totalDefense() * DEFENSE_CUT_PER_POINT);   // 防具でダメージカット
+  player.hp = Math.max(0, player.hp - n);
+  player.safeTime = 0;
+  flashDamage();
+  if (fromX !== undefined) {                     // 殴られた方向へ吹き飛ぶ
+    const dx = player.x - fromX, dz = player.z - fromZ;
+    const d = Math.hypot(dx, dz) || 1;
+    player.vx += dx / d * 5.5;
+    player.vz += dz / d * 5.5;
+    if (player.onGround) { player.vy = 4.4; player.onGround = false; }
+  }
+  if (player.hp <= 0) respawnPlayer();
+  renderHearts();
+}
+function respawnPlayer() {
+  player.hp = PLAYER_MAX_HP;
+  player.safeTime = 99;
+  player.x = SPAWN_PT.x + 0.5; player.z = SPAWN_PT.z + 0.5;
+  player.y = terrainHeight(SPAWN_PT.x, SPAWN_PT.z) + 2;
+  player.vx = player.vy = player.vz = 0;
+  for (let i = mobs.length - 1; i >= 0; i--) if (MOBS[mobs[i].type].hostile) mobs.splice(i, 1);
+  showToast("たおれた…　リスポーンした");
+}
+function updateHealth(dt) {
+  if (player.boost > 0) player.boost = Math.max(0, player.boost - dt);
+  if (player.hp >= PLAYER_MAX_HP) return;
+  player.safeTime += dt;
+  if (player.safeTime < 1.5) return;             // 攻撃を受けた直後は回復しない
+  const rate = (PLAYER_MAX_HP / REGEN_FULL_SEC) * (player.boost > 0 ? PORK_BOOST_MUL : 1);
+  player.hp = Math.min(PLAYER_MAX_HP, player.hp + rate * dt);
+  renderHearts();
+}
+function eatSelected() {
+  const st = inv[selIdx];
+  if (!st) return false;
+  if (st.id === ITEM_PORK) {
+    player.boost = PORK_BOOST_SEC;
+    showToast("豚肉を食べた　しばらく回復が速くなる");
+  } else if (st.id === ITEM_APPLE) {
+    if (player.hp >= PLAYER_MAX_HP) { showToast("体力は満タン"); return true; }
+    player.hp = Math.min(PLAYER_MAX_HP, player.hp + APPLE_HEAL);
+    renderHearts();
+    showToast("リンゴを食べた　体力が回復した");
+  } else if (st.id === ITEM_SQUID) {
+    if (player.hp >= PLAYER_MAX_HP) { showToast("体力は満タン"); return true; }
+    player.hp = Math.min(PLAYER_MAX_HP, player.hp + SQUID_HEAL);
+    renderHearts();
+    showToast("イカを食べた　体力が少し回復した");
+  } else {
+    return false;
+  }
+  st.count--;
+  if (st.count <= 0) inv[selIdx] = null;
+  refreshUI();
+  return true;
+}
+
+function movePlayer(dt) {
+  const flying = gameMode === "creative" && player.flying;
+  player.inWater = isWater(getBlock(Math.floor(player.x), Math.floor(player.y + 0.4), Math.floor(player.z)));
+  const swim = player.inWater && !flying;
+
+  let sx = 0, sf = 0;
+  if (keys["KeyW"]) sf += 1;
+  if (keys["KeyS"]) sf -= 1;
+  if (keys["KeyA"]) sx -= 1;
+  if (keys["KeyD"]) sx += 1;
+  const len = Math.hypot(sx, sf);
+  // 移動中に Ctrl でダッシュ（移動速度 30% アップ。しゃがみ中は無効）
+  const sneaking = keys["ShiftLeft"] || keys["ShiftRight"];
+  player.dashing = len > 0 && !sneaking && (keys["ControlLeft"] || keys["ControlRight"]);
+  const speed = (flying ? 8.5 : ((sneaking ? 2.6 : 4.7) * (swim ? 0.62 : 1))) * (player.dashing ? 1.3 : 1);
+  let wx = 0, wz = 0;
+  if (len > 0) {
+    sx /= len; sf /= len;
+    const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw);
+    wx = (sx * cy - sf * sy) * speed;
+    wz = (-sx * sy - sf * cy) * speed;
+  }
+  const k = 1 - Math.exp(-(swim ? 9 : 18) * dt);
+  player.vx += (wx - player.vx) * k;
+  player.vz += (wz - player.vz) * k;
+
+  if (flying) {                                  // 飛行中：Space で上昇、Shift で下降
+    let vv = 0;
+    if (keys["Space"]) vv += 8.5;
+    if (keys["ShiftLeft"] || keys["ShiftRight"]) vv -= 8.5;
+    player.vy += (vv - player.vy) * (1 - Math.exp(-14 * dt));
+  } else if (swim) {                              // 水中：ゆっくり沈み、Space で浮上
+    player.vy -= 7 * dt;
+    if (keys["Space"]) player.vy += 17 * dt;
+    player.vy = Math.max(-2.6, Math.min(3.4, player.vy));
+  } else {
+    player.vy -= 26 * dt;
+    if (player.vy < -55) player.vy = -55;
+    if (keys["Space"] && player.onGround) { player.vy = 8.4; player.onGround = false; }
+  }
+
+  const canStep = player.onGround || swim || flying;  // 泳ぎ・飛行中も段差を登れる
+  let bumped = false;
+  const nx = player.x + player.vx * dt;
+  if (!boxCollides(nx, player.y, player.z, PW, PH)) player.x = nx;
+  else if (canStep && !boxCollides(nx, player.y + 1, player.z, PW, PH)) { player.x = nx; player.y += 1; }
+  else { player.vx = 0; bumped = true; }
+
+  const nz = player.z + player.vz * dt;
+  if (!boxCollides(player.x, player.y, nz, PW, PH)) player.z = nz;
+  else if (canStep && !boxCollides(player.x, player.y + 1, nz, PW, PH)) { player.z = nz; player.y += 1; }
+  else { player.vz = 0; bumped = true; }
+
+  // 水の中で壁にぶつかったら、岸をよじ登れるように少し浮き上がる
+  if (swim && bumped && (Math.abs(wx) > 0.1 || Math.abs(wz) > 0.1)) {
+    player.vy = Math.max(player.vy, 3.6);
+  }
+
+  const ny = player.y + player.vy * dt;
+  if (boxCollides(player.x, ny, player.z, PW, PH)) {
+    if (player.vy < 0) { player.y = Math.floor(player.y); player.onGround = true; }
+    player.vy = 0;
+  } else {
+    player.y = ny;
+    player.onGround = false;
+  }
+  if (player.y < -30) {
+    player.x = SPAWN_PT.x + 0.5; player.z = SPAWN_PT.z + 0.5;
+    player.y = terrainHeight(SPAWN_PT.x, SPAWN_PT.z) + 2;
+    player.vx = player.vy = player.vz = 0;
+  }
+}
+
+/* ============================================================
+   12. モブ
+   ============================================================ */
+const mobs = [];
+const MAX_MOBS = 44;
+const DEATH_TIME = 0.75;                 // 倒れてから消えるまで
+// 倒したときに落とすもの [ID, 最小, 最大]
+const MOB_DROPS = {
+  chicken: [[ITEM_FEATHER, 1, 2]],
+  pig:     [[ITEM_PORK, 1, 2]],
+  cow:     [[ITEM_LEATHER, 1, 2]],
+  spider:  [[ITEM_STRING, 1, 2]],
+  squid:   [[ITEM_SQUID, 1, 3]],
+};
+function finishDeath(m) {
+  const list = MOB_DROPS[m.type];
+  if (list) for (const [id, lo, hi] of list) {
+    const n = lo + ((Math.random() * (hi - lo + 1)) | 0);
+    for (let k = 0; k < n; k++) spawnDrop(m.x, m.y + 0.4, m.z, id);
+  }
+  if (m.sword) spawnDrop(m.x, m.y + 0.6, m.z, ITEM_SWORD);
+}
+
+function spawnMob(type, x, y, z) {
+  const d = MOBS[type];
+  mobs.push({
+    type, x, y, z, vx:0, vy:0, vz:0,
+    yaw: Math.random() * 6.283, hp: d.hp, maxHp: d.hp,
+    variant: (Math.random() * d.variants.length) | 0,
+    sword: type === "zombie" && Math.random() < 0.10,      // 10% は鉄の剣を持っている
+    onGround:false, inWater:false, hurt:0, walk:0, timer:Math.random()*2, moving:false, dying:0, walkAmp:0,
+    blinking:false, blinkTimer:1.5 + Math.random() * 5,     // 牛・ブタの、時折まばたきするタイマー
+  });
+  return mobs[mobs.length - 1];
+}
+
+/* 夜だけゾンビを湧かせ、朝になったら消す */
+const MAX_ZOMBIES = 10;
+let zombieTimer = 0;
+// その真上に空が見えるか（屋根・洞窟の天井があれば false）
+function isSkyExposed(x, y, z) {
+  for (let cy = Math.max(0, y); cy < CH_Y; cy++) {
+    if (isSolid(getBlock(x, cy, z))) return false;
+  }
+  return true;
+}
+const ZOMBIE_BURN_DPS = 4;         // 日光で燃えているときのダメージ／秒
+function updateZombies(dt) {
+  // 日中、空の見える場所にいるゾンビは日光で燃えて消滅する（物陰・水中・洞窟の中は平気）
+  for (let i = mobs.length - 1; i >= 0; i--) {
+    const m = mobs[i];
+    if (m.type !== "zombie" || m.dying > 0) continue;
+    const inWater = isWater(getBlock(Math.floor(m.x), Math.floor(m.y + 0.5), Math.floor(m.z)));
+    const burning = !sky.isNight && !inWater &&
+      isSkyExposed(Math.floor(m.x), Math.floor(m.y + 1.2), Math.floor(m.z));
+    if (burning) {
+      m.hurt = 0.3;
+      m.hp -= ZOMBIE_BURN_DPS * dt;
+      if (m.hp <= 0) {
+        m.hp = 0; m.dying = DEATH_TIME; m.vx = 0; m.vz = 0;
+        showToast("ゾンビが日光で燃え尽きた");
+      }
+    }
+  }
+
+  zombieTimer -= dt;
+  if (zombieTimer > 0) return;
+  zombieTimer = 1.4;
+  if (!sky.isNight) return;                            // 湧くのは夜だけ（消滅は上の日光判定で行う）
+
+  let n = 0;
+  for (const m of mobs) if (m.type === "zombie") n++;
+  if (n >= MAX_ZOMBIES) return;
+
+  for (let tries = 0; tries < 14; tries++) {
+    const ang = Math.random() * 6.283;
+    const dist = 18 + Math.random() * 20;             // プレイヤーの少し外側に湧く
+    const x = Math.floor(player.x + Math.cos(ang) * dist);
+    const z = Math.floor(player.z + Math.sin(ang) * dist);
+    const h = terrainHeight(x, z);
+    if (h < WATER_LEVEL) continue;                    // 水の上には湧かない
+    if (getBlock(x, h + 1, z) !== AIR && !isPlant(getBlock(x, h + 1, z))) continue;
+    if (nearTorch(x + 0.5, h + 1, z + 0.5)) continue;  // 松明の近くには湧かない
+    spawnMob("zombie", x + 0.5, h + 1, z + 0.5);
+    return;
+  }
+}
+const MAX_SPIDERS = 6;
+let spiderTimer = 0;
+function updateSpiders(dt) {
+  spiderTimer -= dt;
+  if (spiderTimer > 0) return;
+  spiderTimer = 2.2;
+  if (!sky.isNight) return;      // 夜だけスポーン（消滅はなし）
+
+  let n = 0;
+  for (const m of mobs) if (m.type === "spider") n++;
+  if (n >= MAX_SPIDERS) return;
+
+  for (let tries = 0; tries < 10; tries++) {
+    const ang = Math.random() * 6.283;
+    const dist = 16 + Math.random() * 22;
+    const x = Math.floor(player.x + Math.cos(ang) * dist);
+    const z = Math.floor(player.z + Math.sin(ang) * dist);
+    const h = terrainHeight(x, z);
+    if (h < WATER_LEVEL) continue;
+    if (getBlock(x, h + 1, z) !== AIR && !isPlant(getBlock(x, h + 1, z))) continue;
+    if (nearTorch(x + 0.5, h + 1, z + 0.5)) continue;  // 松明の近くには湧かない
+    spawnMob("spider", x + 0.5, h + 1, z + 0.5);
+    return;
+  }
+}
+
+function trySpawnInChunk(chunk) {
+  chunk.spawned = true;
+  if (mobs.length >= MAX_MOBS) return;
+  const pick = () => {
+    const lx = (Math.random() * CH_X) | 0, lz = (Math.random() * CH_Z) | 0;
+    const wx = chunk.cx * CH_X + lx, wz = chunk.cz * CH_Z + lz;
+    return { wx, wz, h: terrainHeight(wx, wz) };
+  };
+
+  // 水の中には金魚（海には湧かない。池などの浅い水だけ）
+  for (let i = 0; i < 7 && mobs.length < MAX_MOBS; i++) {
+    const p = pick();
+    if (p.h >= WATER_LEVEL) continue;                     // 水のある所だけ
+    if (isDeepOcean(p.wx, p.wz)) continue;                // 海（深い水）には金魚は湧かない
+    spawnMob("fish", p.wx + 0.5, p.h + 1 + Math.random() * Math.max(0.1, WATER_LEVEL - p.h - 1), p.wz + 0.5);
+  }
+
+  // 海にはイカが湧く（スポーン率アップ：金魚と同じ試行回数に）
+  for (let i = 0; i < 7 && mobs.length < MAX_MOBS; i++) {
+    const p = pick();
+    if (!isDeepOcean(p.wx, p.wz)) continue;                // 海（深い水）だけ
+    spawnMob("squid", p.wx + 0.5, p.h + 1 + Math.random() * Math.max(0.1, WATER_LEVEL - p.h - 1), p.wz + 0.5);
+  }
+  // 海にはサメも湧く
+  if (hash2(chunk.cx * 37 + 5, chunk.cz * 71 + 13) < 0.35) {
+    const p = pick();
+    if (isDeepOcean(p.wx, p.wz) && !nearTorch(p.wx + 0.5, p.h + 1, p.wz + 0.5)) {
+      spawnMob("shark", p.wx + 0.5, p.h + 1 + Math.random() * Math.max(0.1, WATER_LEVEL - p.h - 1), p.wz + 0.5);
+    }
+  }
+
+  const r = hash2(chunk.cx * 91 + 17, chunk.cz * 53 + 7);
+  if (r > 0.3) return;                                    // ほとんどのチャンクには湧かない
+  const n = 1 + ((r * 17) | 0) % 3;
+  for (let i = 0; i < n && mobs.length < MAX_MOBS; i++) {
+    const p = pick();
+    if (p.h < WATER_LEVEL) continue;                      // 水の中には湧かせない
+    if (desertAt(p.wx, p.wz) > 0.60) continue;            // 砂漠にはモンスター以外湧かない
+    const rr = hash2(p.wx * 13 + 5, p.wz * 29 + 3);
+    const type = rr < 0.40 ? "pig" : (rr < 0.72 ? "chicken" : "cow");
+    spawnMob(type, p.wx + 0.5, p.h + 1, p.wz + 0.5);
+  }
+}
+
+function updateMobs(dt) {
+  const maxDist = (RENDER_DIST + 2) * CH_X;
+  for (let i = mobs.length - 1; i >= 0; i--) {
+    const m = mobs[i];
+    const d = MOBS[m.type];
+    if (m.hurt > 0) m.hurt -= dt;
+
+    // 時折まばたきする（対応するモブ＝牛・ブタのみ見た目に反映される）
+    m.blinkTimer -= dt;
+    if (m.blinkTimer <= 0) {
+      m.blinking = !m.blinking;
+      m.blinkTimer = m.blinking ? 0.12 : (2 + Math.random() * 5);
+    }
+
+    if (m.dying > 0) {                       // 倒れているあいだは動かない
+      m.dying -= dt;
+      m.vx = 0; m.vz = 0;
+      if (m.dying <= 0) { finishDeath(m); mobs.splice(i, 1); continue; }
+      m.vy -= 24 * dt;
+      const dy = m.y + m.vy * dt;
+      if (boxCollides(m.x, dy, m.z, d.hw, d.height)) { if (m.vy < 0) m.y = Math.floor(m.y); m.vy = 0; }
+      else m.y = dy;
+      continue;
+    }
+
+    if (Math.abs(m.x - player.x) > maxDist || Math.abs(m.z - player.z) > maxDist || m.y < -20) {
+      mobs.splice(i, 1); continue;
+    }
+
+    const dxp = player.x - m.x, dzp = player.z - m.z;
+    const distP = Math.hypot(dxp, dzp);
+    const canDetectPlayer = d.hostile && gameMode !== "creative";   // クリエイティブでは敵対モブがプレイヤーを感知しない
+    if (canDetectPlayer && distP < 26) {
+      // プレイヤーを見つけたら向きを変えて追いかける
+      m.yaw = Math.atan2(-dxp, -dzp);
+      m.moving = distP > 0.9;
+      m.timer = 0.5;
+      // 手が届いたら殴ってくる
+      m.atkCd = (m.atkCd || 0) - dt;
+      const dyp = player.y - m.y;
+      if (distP < 1.3 && dyp > -1.6 && dyp < 2.0 && m.atkCd <= 0 && !(m.dying > 0)) {
+        m.atkCd = 1.0;
+        damagePlayer(d.atk || 3, m.x, m.z);
+      }
+    } else {
+      // ぶらぶら歩く
+      m.timer -= dt;
+      if (m.timer <= 0) {
+        m.moving = Math.random() < 0.62;
+        if (m.moving) m.yaw = Math.random() * 6.283;
+        m.timer = 1.2 + Math.random() * 3;
+      }
+    }
+    const k = 1 - Math.exp(-10 * dt);
+    const feet = d.aquatic ? 0.15 : 0.3;
+    m.inWater = isWater(getBlock(Math.floor(m.x), Math.floor(m.y + feet), Math.floor(m.z)));
+
+    if (d.aquatic) {
+      /* --- 魚：水の中だけを泳ぐ --- */
+      if (m.inWater) {
+        const fx = -Math.sin(m.yaw), fz = -Math.cos(m.yaw);
+        const ax = Math.floor(m.x + fx * 0.9), az = Math.floor(m.z + fz * 0.9);
+        if (!isWater(getBlock(ax, Math.floor(m.y + feet), az))) {   // 壁や水面の外なら向きを変える
+          m.yaw += 2.0 + Math.random() * 1.6;
+          m.timer = 0.5;
+        }
+        m.vx += (-Math.sin(m.yaw) * d.speed - m.vx) * k;
+        m.vz += (-Math.cos(m.yaw) * d.speed - m.vz) * k;
+
+        if (canDetectPlayer && distP < 26) {                // サメ等：上下もプレイヤーを追う
+          m.swimY = Math.max(-0.9, Math.min(0.9, (player.y - m.y) * 0.6));
+        } else if (m.swimY === undefined || m.timer <= 0.02) {
+          m.swimY = (Math.random() - 0.5) * 0.9;
+        }
+        let ty = m.swimY;
+        const cx = Math.floor(m.x), cz = Math.floor(m.z);
+        if (ty > 0 && !isWater(getBlock(cx, Math.floor(m.y + 0.8), cz))) ty = -0.5;
+        if (ty < 0 && !isWater(getBlock(cx, Math.floor(m.y - 0.35), cz))) ty = 0.5;
+        m.vy += (ty - m.vy) * k;
+        m.moving = true;
+      } else {                                   // 陸に出たらぴちぴち跳ねる
+        m.vx *= 0.88; m.vz *= 0.88;
+        m.vy -= 24 * dt;
+        if (m.onGround) { m.vy = 3.0; m.yaw += 1.1; }
+      }
+      m.walk += (d.speed * 2.6) * dt * 6.5;       // ひれは常に動かす
+    } else {
+      const sp = d.speed * (m.inWater ? 0.5 : 1);
+      const tx = m.moving ? -Math.sin(m.yaw) * sp : 0;
+      const tz = m.moving ? -Math.cos(m.yaw) * sp : 0;
+      m.vx += (tx - m.vx) * k;
+      m.vz += (tz - m.vz) * k;
+
+      if (m.inWater) {                           // 水に浮く
+        m.vy += 16 * dt;
+        m.vy = Math.max(-1.5, Math.min(1.8, m.vy));
+      } else {
+        m.vy -= 24 * dt;
+        const term = m.type === "chicken" ? -3.2 : -50;   // ニワトリはゆっくり落ちる
+        if (m.vy < term) m.vy = term;
+      }
+    }
+
+    const nx = m.x + m.vx * dt;
+    if (!boxCollides(nx, m.y, m.z, d.hw, d.height)) m.x = nx;
+    else if (m.onGround && !boxCollides(nx, m.y + 1, m.z, d.hw, d.height)) { m.x = nx; m.y += 1; }
+    else { m.vx = 0; m.yaw += 1.6; }
+
+    const nz = m.z + m.vz * dt;
+    if (!boxCollides(m.x, m.y, nz, d.hw, d.height)) m.z = nz;
+    else if (m.onGround && !boxCollides(m.x, m.y + 1, nz, d.hw, d.height)) { m.z = nz; m.y += 1; }
+    else { m.vz = 0; m.yaw += 1.6; }
+
+    const ny = m.y + m.vy * dt;
+    if (boxCollides(m.x, ny, m.z, d.hw, d.height)) {
+      if (m.vy < 0) { m.y = Math.floor(m.y); m.onGround = true; }
+      m.vy = 0;
+    } else { m.y = ny; m.onGround = false; }
+
+    m.walkAmp += ((m.moving ? 1 : 0) - m.walkAmp) * Math.min(1, dt * 6);
+    if (!d.aquatic) m.walk += Math.hypot(m.vx, m.vz) * dt * 6.5;
+  }
+}
+
+// 視線とモブの当たり判定（スラブ法）
+function raycastMob(maxDist) {
+  const ox = player.x, oy = player.y + EYE, oz = player.z;
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  const dx = -Math.sin(player.yaw) * cp, dy = sp, dz = -Math.cos(player.yaw) * cp;
+  let best = null, bestT = maxDist;
+  for (const m of mobs) {
+    if (m.dying > 0) continue;               // 倒れている最中は狙えない
+    const d = MOBS[m.type];
+    const pad = 0.12;
+    const b0 = [m.x - d.hw - pad, m.y - pad, m.z - d.hw - pad];
+    const b1 = [m.x + d.hw + pad, m.y + d.height + pad, m.z + d.hw + pad];
+    let t0 = 0, t1 = bestT;
+    const o = [ox, oy, oz], dir = [dx, dy, dz];
+    let ok = true;
+    for (let a = 0; a < 3; a++) {
+      if (Math.abs(dir[a]) < 1e-8) {
+        if (o[a] < b0[a] || o[a] > b1[a]) { ok = false; break; }
+        continue;
+      }
+      let ta = (b0[a] - o[a]) / dir[a], tb = (b1[a] - o[a]) / dir[a];
+      if (ta > tb) { const t = ta; ta = tb; tb = t; }
+      if (ta > t0) t0 = ta;
+      if (tb < t1) t1 = tb;
+      if (t0 > t1) { ok = false; break; }
+    }
+    if (ok && t0 >= 0 && t0 < bestT) { bestT = t0; best = m; }
+  }
+  return best ? { mob: best, t: bestT } : null;
+}
+
+function currentDamage() {
+  const s = inv[selIdx];
+  if (!s) return ATTACK_DAMAGE;
+  if (s.id === ITEM_SWORD) return ATTACK_DAMAGE + SWORD_DAMAGE;
+  if (s.id === ITEM_STICK) return ATTACK_DAMAGE + STICK_DAMAGE;
+  if (s.id === ITEM_WOOD_SWORD) return WOOD_SWORD_DAMAGE;
+  if (s.id === ITEM_AXE) return AXE_DAMAGE;
+  if (s.id === ITEM_PICKAXE) return PICKAXE_DAMAGE;
+  return ATTACK_DAMAGE;
+}
+function attackMob(m) {
+  if (m.dying > 0) return;
+  const d = MOBS[m.type];
+  m.hp -= currentDamage();
+  m.hurt = 0.32;
+  const _sw = inv[selIdx];
+  if (_sw && _sw.id === ITEM_SWORD && gameMode !== "creative") {
+    _sw.uses = (_sw.uses || 0) + 1;
+    if (_sw.uses >= SWORD_MAX_USES) { inv[selIdx] = null; showToast("剣が壊れた！"); refreshUI(); }
+  }
+  const cp = Math.cos(player.pitch);
+  const kx = -Math.sin(player.yaw) * cp, kz = -Math.cos(player.yaw) * cp;
+  m.vx += kx * 5.5; m.vz += kz * 5.5;
+  if (!m.inWater && m.onGround) { m.vy = 4.2; m.onGround = false; }
+  m.moving = true; m.timer = 1.5;
+  m.yaw = Math.atan2(-kx, -kz);                  // 殴られた方向へ逃げる
+  if (m.hp <= 0) {
+    m.hp = 0;
+    m.dying = DEATH_TIME;                    // 倒れるモーションに入る
+    m.vx = 0; m.vz = 0;
+    showToast(d.name + "をたおした");
+  } else {
+    showToast(`${d.name}  体力 ${m.hp} / ${m.maxHp}`);
+  }
+}
+
+/* ============================================================
+   12b. 弓と矢（引き絞るほど威力が上がる／飛んでいく矢）
+   ============================================================ */
+let bowCharge = null;                 // 引き絞り開始時刻（performance.now()）。null は未使用
+const projectiles = [];               // 飛んでいる矢
+const MAX_PROJECTILE_AGE = 6;
+function findArrowSlot() {
+  for (let i = 0; i < inv.length; i++) {
+    const s = inv[i];
+    if (s && s.id === ITEM_ARROW && s.count > 0) return i;
+  }
+  return -1;
+}
+function hasArrow() { return findArrowSlot() >= 0; }
+function consumeArrow() {
+  if (gameMode === "creative") return;        // クリエイティブは矢を消費しない
+  const i = findArrowSlot();
+  if (i < 0) return;
+  inv[i].count--;
+  if (inv[i].count <= 0) inv[i] = null;
+  refreshUI();
+}
+function bowChargeRatio() {                   // 0〜1（現在どれだけ引き絞っているか）
+  if (bowCharge === null) return 0;
+  return Math.min(1, (performance.now() - bowCharge) / (BOW_MAX_CHARGE_SEC * 1000));
+}
+function shootArrow() {
+  if (bowCharge === null) return;
+  const st = inv[selIdx];
+  const t = bowChargeRatio();
+  bowCharge = null;
+  if (!st || st.id !== ITEM_BOW || !hasArrow()) return;
+  const dmg = BOW_MIN_DMG + (BOW_MAX_DMG - BOW_MIN_DMG) * t;
+  consumeArrow();
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  const dx = -Math.sin(player.yaw) * cp, dy = sp, dz = -Math.cos(player.yaw) * cp;
+  projectiles.push({
+    x: player.x + dx * 0.6, y: player.y + EYE + dy * 0.6, z: player.z + dz * 0.6,
+    vx: dx * ARROW_SPEED, vy: dy * ARROW_SPEED, vz: dz * ARROW_SPEED,
+    dmg, age: 0, yaw: player.yaw, pitch: player.pitch,
+  });
+  startSwing();
+}
+function updateProjectiles(dt) {
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.age += dt;
+    if (p.age > MAX_PROJECTILE_AGE) { projectiles.splice(i, 1); continue; }
+    p.vy -= ARROW_GRAVITY * dt;
+    const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt, nz = p.z + p.vz * dt;
+
+    let hitMob = null;                          // モブへの命中判定
+    for (const m of mobs) {
+      if (m.dying > 0) continue;
+      const d = MOBS[m.type];
+      const hw = d.hw + 0.2;
+      if (nx > m.x - hw && nx < m.x + hw && nz > m.z - hw && nz < m.z + hw &&
+          ny > m.y - 0.2 && ny < m.y + d.height + 0.2) { hitMob = m; break; }
+    }
+    if (hitMob) {
+      const d = MOBS[hitMob.type];
+      hitMob.hp -= p.dmg;
+      hitMob.hurt = 0.32;
+      hitMob.moving = true; hitMob.timer = 1.5;
+      hitMob.vx += p.vx * 0.12; hitMob.vz += p.vz * 0.12;
+      if (hitMob.hp <= 0) {
+        hitMob.hp = 0; hitMob.dying = DEATH_TIME; hitMob.vx = 0; hitMob.vz = 0;
+        showToast(d.name + "をたおした");
+      } else {
+        showToast(`${d.name}  体力 ${Math.ceil(hitMob.hp)} / ${hitMob.maxHp}`);
+      }
+      projectiles.splice(i, 1);
+      continue;
+    }
+
+    if (isSolid(getBlock(Math.floor(nx), Math.floor(ny), Math.floor(nz)))) {   // ブロックに刺さる
+      projectiles.splice(i, 1);
+      continue;
+    }
+    p.x = nx; p.y = ny; p.z = nz;
+    const horiz = Math.hypot(p.vx, p.vz);
+    p.yaw = Math.atan2(-p.vx, -p.vz);
+    p.pitch = Math.atan2(p.vy, horiz);
+  }
+}
+function drawProjectiles() {
+  if (!projectiles.length) return;
+  const m = itemMesh(ITEM_ARROW);
+  gl.bindVertexArray(m.vao);
+  for (const p of projectiles) {
+    transRotYX(mTmpA, p.x, p.y, p.z, p.yaw, -p.pitch);
+    scaleMat(mTmpB, 0.5);
+    mul(mTmpC, mTmpA, mTmpB);
+    gl.uniformMatrix4fv(U.model, false, mTmpC);
+    gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);
+  }
+  gl.bindVertexArray(null);
+}
+
+/* ============================================================
+   13. レイキャスト / 破壊・設置・攻撃
+   ============================================================ */
+function raycast(maxDist) {
+  const ox = player.x, oy = player.y + EYE, oz = player.z;
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  const dx = -Math.sin(player.yaw) * cp, dy = sp, dz = -Math.cos(player.yaw) * cp;
+
+  let x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
+  const stepX = dx > 0 ? 1 : -1, stepY = dy > 0 ? 1 : -1, stepZ = dz > 0 ? 1 : -1;
+  const tDX = Math.abs(1 / dx), tDY = Math.abs(1 / dy), tDZ = Math.abs(1 / dz);
+  let tMX = (dx > 0 ? (x + 1 - ox) : (ox - x)) * tDX;
+  let tMY = (dy > 0 ? (y + 1 - oy) : (oy - y)) * tDY;
+  let tMZ = (dz > 0 ? (z + 1 - oz) : (oz - z)) * tDZ;
+  let nx = 0, ny = 0, nz = 0, t = 0;
+
+  while (t <= maxDist) {
+    if (y >= 0 && y < CH_Y) {
+      const b = getBlock(x, y, z);
+      if (b !== AIR && !isWater(b)) return { x, y, z, nx, ny, nz, block:b, t };  // 水は素通り
+    }
+    if (tMX < tMY && tMX < tMZ) { x += stepX; t = tMX; tMX += tDX; nx = -stepX; ny = 0; nz = 0; }
+    else if (tMY < tMZ)         { y += stepY; t = tMY; tMY += tDY; nx = 0; ny = -stepY; nz = 0; }
+    else                        { z += stepZ; t = tMZ; tMZ += tDZ; nx = 0; ny = 0; nz = -stepZ; }
+  }
+  return null;
+}
+
+// 松明の位置を覚えておく（周囲にモンスターが湧かないようにする・光を描画するため）
+const torches = [];
+function addTorch(x, y, z) { torches.push({ x: x + 0.5, y: y + 0.5, z: z + 0.5 }); }
+function removeTorch(x, y, z) {
+  for (let i = torches.length - 1; i >= 0; i--) {
+    const t = torches[i];
+    if (Math.floor(t.x) === x && Math.floor(t.y) === y && Math.floor(t.z) === z) { torches.splice(i, 1); return; }
+  }
+}
+function nearTorch(x, y, z) {
+  for (let i = 0; i < torches.length; i++) {
+    const t = torches[i];
+    const dx = t.x - x, dy = t.y - y, dz = t.z - z;
+    if (dx * dx + dy * dy + dz * dz <= TORCH_LIGHT_RADIUS * TORCH_LIGHT_RADIUS) return true;
+  }
+  return false;
+}
+
+// ブロックを壊したときに出るもの（null なら何も出ない）
+function blockDrop(b) {
+  if (b === LEAVES) return Math.random() < 0.06 ? ITEM_APPLE : null;   // 葉からはたまにリンゴだけ
+  if (b === COAL_ORE) return ITEM_COAL;
+  return b;
+}
+function mineBlock(x, y, z) {
+  const b = getBlock(x, y, z);
+  if (b === AIR || b === BEDROCK || isWater(b)) return;   // 岩盤と水は壊せない
+  setBlock(x, y, z, AIR);
+  if (b === TORCH) removeTorch(x, y, z);
+  const drop = blockDrop(b);
+  if (drop !== null) spawnDrop(x + 0.5, y + 0.4, z + 0.5, drop);
+  if (b === CHEST) {                                  // 中身もこぼれ出る
+    const c = chestAt(x, y, z, false);
+    if (c) {
+      for (const st of c) if (st) for (let n = 0; n < st.count; n++)
+        spawnDrop(x + 0.5, y + 0.6, z + 0.5, st.id);
+      chests.delete(chestKey(x, y, z));
+    }
+  }
+  // 上にある植物・サボテンも連鎖で壊れる
+  {
+    let cy = y + 1;
+    while (cy < 48) {
+      const top = getBlock(x, cy, z);
+      if (!isPlant(top) && top !== CACTUS) break;
+      setBlock(x, cy, z, AIR);
+      if (top === TORCH) removeTorch(x, cy, z);
+      const d2 = blockDrop(top);
+      if (d2 !== null) spawnDrop(x + 0.5, cy + 0.4, z + 0.5, d2);
+      cy++;
+      if (isPlant(top)) break;   // 草花は 1 個だけ
+    }
+  }
+}
+// 長押しで採掘。生き物を狙っているときは 1 回のクリックで攻撃
+const mining = { active:false, x:0, y:0, z:0, block:0, progress:0, total:0 };
+function resetMining() {
+  mining.active = false; mining.progress = 0;
+  mineBarEl.style.display = "none";
+}
+function primaryAction() {
+  const mobHit = raycastMob(4.0);
+  const blockHit = raycast(5.5);
+  if (mobHit && (!blockHit || mobHit.t <= blockHit.t)) { attackMob(mobHit.mob); startSwing(); return true; }
+  startSwing();
+  return false;
+}
+function updateMining(dt) {
+  if (!mouseDown || !locked || invOpen) { if (mining.active) resetMining(); return; }
+  const hit = raycast(5.5);
+  if (!hit || hit.block === BEDROCK) { if (mining.active) resetMining(); return; }
+  const mobHit = raycastMob(4.0);
+  if (mobHit && mobHit.t <= hit.t) { if (mining.active) resetMining(); return; }   // 生き物が手前
+
+  if (!mining.active || mining.x !== hit.x || mining.y !== hit.y || mining.z !== hit.z
+      || mining.block !== hit.block) {
+    mining.active = true; mining.progress = 0;
+    mining.x = hit.x; mining.y = hit.y; mining.z = hit.z; mining.block = hit.block;
+    const _tool = inv[selIdx];
+    mining.total = gameMode === "creative" ? 0
+      : breakTime(hit.block) / miningSpeedMul(_tool ? _tool.id : 0, hit.block);   // クリエイティブは瞬時に壊せる
+  }
+  mining.progress += dt;
+  startSwing();                                   // 掘っているあいだは振り続ける
+  if (mining.progress >= mining.total) {
+    mineBlock(mining.x, mining.y, mining.z);
+    resetMining();
+    return;
+  }
+  if (mining.total > 0) {
+    mineBarEl.style.display = "block";
+    mineFillEl.style.width = Math.min(100, (mining.progress / mining.total) * 100).toFixed(1) + "%";
+  }
+}
+function placeBlock() {
+  const stack = inv[selIdx];
+  if (!stack || isItem(stack.id)) return;             // 道具は置けない
+  const hit = raycast(5.5);
+  if (!hit) return;
+  let x, y, z;
+  if (isPlant(hit.block)) { x = hit.x; y = hit.y; z = hit.z; }
+  else { x = hit.x + hit.nx; y = hit.y + hit.ny; z = hit.z + hit.nz; }
+  if (y < 0 || y >= CH_Y) return;
+  if (isSolid(getBlock(x, y, z))) return;
+
+  const id = stack.id;
+  if (isPlant(id)) {
+    if (id === SEAGRASS || id === KELP) {
+      if (!isWater(getBlock(x, y, z))) return;    // 水草・昆布は水の中にしか置けない
+      const below = getBlock(x, y - 1, z);
+      if (!isSolid(below) && !(id === KELP && below === KELP)) return;   // 昆布は昆布の上にも積める
+    } else if (!isSolid(getBlock(x, y - 1, z))) return;
+  } else {
+    if (player.x + PW > x && player.x - PW < x + 1 &&
+        player.y + PH > y && player.y      < y + 1 &&
+        player.z + PW > z && player.z - PW < z + 1) return;
+    for (const m of mobs) {                       // 生き物に重なる場所にも置けない
+      const d = MOBS[m.type];
+      if (m.x + d.hw > x && m.x - d.hw < x + 1 &&
+          m.y + d.height > y && m.y < y + 1 &&
+          m.z + d.hw > z && m.z - d.hw < z + 1) return;
+    }
+  }
+  if (id === CACTUS &&                            // サボテンは四方にブロックがあると置けない
+      (isSolid(getBlock(x - 1, y, z)) || isSolid(getBlock(x + 1, y, z)) ||
+       isSolid(getBlock(x, y, z - 1)) || isSolid(getBlock(x, y, z + 1)))) return;
+  setBlock(x, y, z, id);
+  if (id === TORCH) addTorch(x, y, z);
+  if (gameMode !== "creative") takeSelected();   // クリエイティブはアイテムが減らない
+}
+
+/* ============================================================
+   14. UI
+   ============================================================ */
+const overlay   = document.getElementById("overlay");
+const crosshair = document.getElementById("crosshair");
+const hotbarEl  = document.getElementById("hotbar");
+const hudEl     = document.getElementById("hud");
+const invEl     = document.getElementById("inv");
+const invMainEl = document.getElementById("invMain");
+const invChestEl = document.getElementById("invChest");
+const craftGridEl = document.getElementById("craftGrid");
+const craftOutEl = document.getElementById("craftOut");
+const craftLabelEl = document.querySelector(".craftLabel");
+const chestWrapEl = document.getElementById("chestWrap");
+const invTitleEl = document.getElementById("invTitle");
+const invHotEl  = document.getElementById("invHot");
+const armorRowEl = document.getElementById("armorRow");
+const heldEl    = document.getElementById("held");
+const toastEl   = document.getElementById("itemName");
+const biomeEl   = document.getElementById("biome");
+let locked = false, invOpen = false, mouseDown = false;
+const mineBarEl = document.getElementById("mineBar");
+const mineFillEl = mineBarEl.firstElementChild;
+
+function tileToDataURL(layer) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 16;
+  const ctx = c.getContext("2d");
+  const img = ctx.createImageData(16, 16);
+  img.data.set(tiles[layer]);
+  ctx.putImageData(img, 0, 0);
+  return c.toDataURL();
+}
+const ICON = {
+  [GRASS]: tileToDataURL(T_GRASS_SIDE),
+  [DIRT]:  tileToDataURL(T_DIRT),
+  [STONE]: tileToDataURL(T_STONE),
+  [BEDROCK]: tileToDataURL(T_BEDROCK),
+  [TALLGRASS]: tileToDataURL(T_TALLGRASS),
+  [POPPY]: tileToDataURL(T_POPPY),
+  [SEAGRASS]: tileToDataURL(T_SEAGRASS),
+  [KELP]: tileToDataURL(T_KELP),
+  [CORNFLOWER]: tileToDataURL(T_CORNFLOWER),
+  [DANDELION]: tileToDataURL(T_DANDELION),
+  [CHEST]: tileToDataURL(T_CHEST_FRONT),
+  [ITEM_SWORD]: tileToDataURL(T_SWORD),
+  [ITEM_FEATHER]: tileToDataURL(T_FEATHER),
+  [ITEM_PORK]: tileToDataURL(T_PORK),
+  [ITEM_STICK]: tileToDataURL(T_STICK),
+  [ITEM_APPLE]: tileToDataURL(T_APPLE),
+  [LOG]: tileToDataURL(T_LOG_SIDE),
+  [LEAVES]: tileToDataURL(T_LEAVES),
+  [PLANKS]: tileToDataURL(T_PLANKS),
+  [TABLE]: tileToDataURL(T_TABLE_FRONT),
+  [SAND]: tileToDataURL(T_SAND),
+  [CACTUS]: tileToDataURL(T_CACTUS_SIDE),
+  [ITEM_LEATHER]: tileToDataURL(T_LEATHER),
+  [ITEM_HELMET]: tileToDataURL(T_ARMOR_HELMET),
+  [ITEM_CHESTPLATE]: tileToDataURL(T_ARMOR_CHEST),
+  [ITEM_LEGGINGS]: tileToDataURL(T_ARMOR_LEGS),
+  [ITEM_BOOTS]: tileToDataURL(T_ARMOR_BOOTS),
+  [ITEM_STRING]: tileToDataURL(T_STRING),
+  [ITEM_BOW]: tileToDataURL(T_BOW),
+  [ITEM_ARROW]: tileToDataURL(T_ARROW),
+  [ITEM_EGG_PIG]: tileToDataURL(T_EGG_PIG),
+  [ITEM_EGG_COW]: tileToDataURL(T_EGG_COW),
+  [ITEM_EGG_CHICKEN]: tileToDataURL(T_EGG_CHICKEN),
+  [ITEM_EGG_ZOMBIE]: tileToDataURL(T_EGG_ZOMBIE),
+  [ITEM_EGG_SPIDER]: tileToDataURL(T_EGG_SPIDER),
+  [ITEM_EGG_GOLDFISH]: tileToDataURL(T_EGG_GOLDFISH),
+  [COAL_ORE]: tileToDataURL(T_COAL_ORE),
+  [ITEM_COAL]: tileToDataURL(T_COAL_ORE),
+  [TORCH]: tileToDataURL(T_TORCH),
+  [ITEM_SQUID]: tileToDataURL(T_SQUID),
+  [ITEM_EGG_SQUID]: tileToDataURL(T_EGG_SQUID),
+  [ITEM_EGG_SHARK]: tileToDataURL(T_EGG_SHARK),
+  [ITEM_PICKAXE]: tileToDataURL(T_PICKAXE),
+  [ITEM_AXE]: tileToDataURL(T_AXE),
+  [ITEM_WOOD_SWORD]: tileToDataURL(T_WOOD_SWORD),
+};
+
+/* ---- 体力のハート ---- */
+const HEART_ART = [
+  ".XX...XX.", "XXXXXXXXX", "XXXXXXXXX", "XXXXXXXXX",
+  ".XXXXXXX.", "..XXXXX..", "...XXX...", "....X....", ".........",
+];
+function makeHeartURL(mode) {                 // 0=空 / 1=半分 / 2=満タン
+  const c = document.createElement("canvas");
+  c.width = c.height = 9;
+  const ctx = c.getContext("2d");
+  const img = ctx.createImageData(9, 9);
+  const RED = [222,52,52], DARK = [58,56,62], OUT = [18,16,20], HI = [255,138,138];
+  const filled = (x, y) => HEART_ART[y][x] === "X";
+  for (let y = 0; y < 9; y++) for (let x = 0; x < 9; x++) {
+    const i = (y * 9 + x) * 4;
+    if (filled(x, y)) {
+      const solid = mode === 2 || (mode === 1 && x <= 3);
+      let col = solid ? RED : DARK;
+      if (solid && ((x === 2 && y === 1) || (x === 2 && y === 2))) col = HI;
+      img.data[i] = col[0]; img.data[i+1] = col[1]; img.data[i+2] = col[2]; img.data[i+3] = 255;
+    } else {
+      let near = false;
+      for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && ny >= 0 && nx < 9 && ny < 9 && filled(nx, ny)) { near = true; break; }
+      }
+      if (near) { img.data[i] = OUT[0]; img.data[i+1] = OUT[1]; img.data[i+2] = OUT[2]; img.data[i+3] = 255; }
+      else img.data[i+3] = 0;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return c.toDataURL();
+}
+const HEART = [makeHeartURL(0), makeHeartURL(1), makeHeartURL(2)];
+const heartsEl = document.getElementById("hearts");
+const damageEl = document.getElementById("damage");
+const heartImgs = [];
+for (let i = 0; i < 10; i++) {
+  const im = document.createElement("img");
+  im.src = HEART[2]; im.alt = "";
+  heartsEl.appendChild(im); heartImgs.push(im);
+}
+let lastHeartKey = -1;
+function renderHearts() {
+  const hp = Math.ceil(player.hp);
+  if (hp === lastHeartKey) return;
+  lastHeartKey = hp;
+  for (let i = 0; i < 10; i++) {
+    const v = hp - i * 2;
+    heartImgs[i].src = v >= 2 ? HEART[2] : (v === 1 ? HEART[1] : HEART[0]);
+  }
+}
+let flashTimer = 0;
+function flashDamage() {
+  damageEl.style.opacity = "1";
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { damageEl.style.opacity = "0"; }, 140);
+}
+renderHearts();
+function slotInner(stack) {
+  if (!stack) return "";
+  return `<img class="icon" src="${ICON[stack.id]}" alt="">` +
+         (stack.count > 1 ? `<span class="cnt">${stack.count}</span>` : "");
+}
+function renderHotbar() {
+  hotbarEl.innerHTML = "";
+  for (let i = 0; i < 9; i++) {
+    const d = document.createElement("div");
+    d.className = "slot" + (i === selIdx ? " active" : "");
+    d.innerHTML = `<i>${i + 1}</i>` + slotInner(inv[i]);
+    d.addEventListener("click", () => { selIdx = i; renderHotbar(); });
+    hotbarEl.appendChild(d);
+  }
+}
+function renderInv() {
+  if (!invOpen) return;
+  const build = (el, arr, from, to, hot) => {
+    el.innerHTML = "";
+    for (let i = from; i < to; i++) {
+      const d = document.createElement("div");
+      d.className = "cell" + (hot ? " hot" : "");
+      d.innerHTML = slotInner(arr[i]);
+      d.addEventListener("mousedown", (ev) => { ev.preventDefault(); clickSlotOn(arr, i, ev.button); });
+      el.appendChild(d);
+    }
+  };
+  // クラフト欄（作業台を開いているときは 3x3）
+  craftGridEl.innerHTML = "";
+  craftGridEl.style.gridTemplateColumns = `repeat(${craftSize}, 46px)`;
+  craftLabelEl.textContent = craftSize === 3
+    ? "作業台（3×3）　原木 1 個 → 木材 4 個 ／ 木材を縦に 2 つ → 棒 4 本 ／ 木材 4 個を 2×2 → 作業台"
+    : "手持ちのクラフト（2×2）　原木 1 個 → 木材 4 個 ／ 木材を縦に 2 つ → 棒 4 本 ／ 木材 4 個を 2×2 → 作業台";
+  for (let r = 0; r < craftSize; r++) for (let c = 0; c < craftSize; c++) {
+    const i = r * 3 + c;
+    const d = document.createElement("div");
+    d.className = "cell";
+    d.innerHTML = slotInner(craft[i]);
+    d.addEventListener("mousedown", (ev) => { ev.preventDefault(); clickSlotOn(craft, i, ev.button); });
+    craftGridEl.appendChild(d);
+  }
+  const res = craftResult();
+  craftOutEl.innerHTML = res ? slotInner(res) : "";
+  craftOutEl.onmousedown = (ev) => { ev.preventDefault(); takeCraft(); };
+
+  // 防具スロット（頭/胸/脚/足）
+  armorRowEl.innerHTML = "";
+  const ARMOR_LABEL = ["頭", "胸", "脚", "足"];
+  for (let i = 0; i < 4; i++) {
+    const d = document.createElement("div");
+    d.className = "cell";
+    d.innerHTML = `<i>${ARMOR_LABEL[i]}</i>` + slotInner(armor[i]);
+    d.addEventListener("mousedown", (ev) => { ev.preventDefault(); clickArmorSlot(i); });
+    armorRowEl.appendChild(d);
+  }
+
+  const chest = openChestKey ? chests.get(openChestKey) : null;
+  chestWrapEl.style.display = chest ? "block" : "none";
+  invTitleEl.textContent = chest ? "宝箱" : "インベントリ";
+  if (chest) build(invChestEl, chest, 0, CHEST_SIZE, false);
+  build(invMainEl, inv, 9, 36, false);
+  build(invHotEl, inv, 0, 9, true);
+  if (held) {
+    heldEl.style.display = "block";
+    heldEl.innerHTML = `<img src="${ICON[held.id]}" alt="">` + (held.count > 1 ? `<b>${held.count}</b>` : "");
+  } else {
+    heldEl.style.display = "none";
+  }
+}
+function refreshUI() { renderHotbar(); renderInv(); }
+
+let openChestKey = null;
+const craft = new Array(9).fill(null);       // 3x3 ぶん（2x2 のときは左上だけ使う）
+let craftSize = 2;                           // 2 = インベントリ内 / 3 = 作業台
+const RECIPES = [
+  { shapeless: LOG, out: { id: PLANKS, count: 4 } },                       // 原木 1 → 木材 4
+  { pat: [[PLANKS], [PLANKS]], out: { id: ITEM_STICK, count: 4 } },        // 木材を縦 2 → 棒 4
+  { pat: [[PLANKS, PLANKS], [PLANKS, PLANKS]], out: { id: TABLE, count: 1 } },  // 木材 4 → 作業台
+  { pat: [[ITEM_LEATHER, ITEM_LEATHER]], out: { id: ITEM_HELMET, count: 1 } },        // 革 2（横）→ ヘルメット
+  { pat: [[ITEM_LEATHER], [ITEM_LEATHER]], out: { id: ITEM_BOOTS, count: 1 } },       // 革 2（縦）→ ブーツ
+  { pat: [[ITEM_LEATHER, ITEM_LEATHER], [ITEM_LEATHER, ITEM_LEATHER]],
+    out: { id: ITEM_CHESTPLATE, count: 1 } },                                         // 革 4（全面）→ チェストプレート
+  { pat: [[ITEM_LEATHER, ITEM_LEATHER], [ITEM_LEATHER, 0]], out: { id: ITEM_LEGGINGS, count: 1 } }, // 革 3（L字）→ レギンス
+  { pat: [[0, ITEM_STICK, ITEM_STRING], [ITEM_STICK, 0, ITEM_STRING], [0, ITEM_STICK, ITEM_STRING]],
+    out: { id: ITEM_BOW, count: 1 } },                                                   // 棒 3 + 糸 3 → 弓（作業台のみ）
+  { pat: [[ITEM_COAL], [ITEM_STICK]], out: { id: TORCH, count: 4 } },                     // 石炭 + 棒 → 松明 4
+  { pat: [[PLANKS, PLANKS, PLANKS], [0, ITEM_STICK, 0], [0, ITEM_STICK, 0]],
+    out: { id: ITEM_PICKAXE, count: 1 } },                                               // 木材 3 + 棒 2 → 木のツルハシ（作業台のみ）
+  { pat: [[PLANKS, PLANKS], [PLANKS, ITEM_STICK], [0, ITEM_STICK]],
+    out: { id: ITEM_AXE, count: 1 } },                                                   // 木材 3 + 棒 2 → 斧（作業台のみ）
+  { pat: [[PLANKS], [PLANKS], [ITEM_STICK]], out: { id: ITEM_WOOD_SWORD, count: 1 } },   // 木材 2 + 棒 1 → 木の剣（作業台のみ）
+];
+function craftResult() {
+  const N = craftSize;
+  const g = [];
+  let minR = 9, maxR = -1, minC = 9, maxC = -1, used = 0;
+  for (let r = 0; r < N; r++) {
+    g[r] = [];
+    for (let c = 0; c < N; c++) {
+      const st = craft[r * 3 + c];
+      const id = st ? st.id : 0;
+      g[r][c] = id;
+      if (id) { used++; if (r < minR) minR = r; if (r > maxR) maxR = r;
+                if (c < minC) minC = c; if (c > maxC) maxC = c; }
+    }
+  }
+  if (!used) return null;
+  for (const rec of RECIPES) {
+    if (rec.shapeless !== undefined) {
+      if (used === 1 && g[minR][minC] === rec.shapeless) return rec.out;
+      continue;
+    }
+    const ph = rec.pat.length, pw = rec.pat[0].length;
+    if (maxR - minR + 1 !== ph || maxC - minC + 1 !== pw) continue;
+    let need = 0, ok = true;
+    for (let r = 0; r < ph && ok; r++) for (let c = 0; c < pw; c++) {
+      const want = rec.pat[r][c] || 0;
+      if (want) need++;
+      if (g[minR + r][minC + c] !== want) { ok = false; break; }
+    }
+    if (ok && need === used) return rec.out;
+  }
+  return null;
+}
+function takeCraft() {
+  const res = craftResult();
+  if (!res) return;
+  if (!held) held = { id: res.id, count: res.count };
+  else if (held.id === res.id && held.count + res.count <= STACK_MAX) held.count += res.count;
+  else return;
+  for (let r = 0; r < craftSize; r++) for (let c = 0; c < craftSize; c++) {
+    const i = r * 3 + c;
+    if (!craft[i]) continue;
+    craft[i].count--;
+    if (craft[i].count <= 0) craft[i] = null;
+  }
+  refreshUI();
+}
+function clickSlotOn(arr, i, button) {
+  const slot = arr[i];
+  if (button === 2) {
+    if (!held) {
+      if (!slot) return;
+      const half = Math.ceil(slot.count / 2);
+      held = { id: slot.id, count: half };
+      slot.count -= half;
+      if (slot.count <= 0) arr[i] = null;
+    } else if (!slot) {
+      arr[i] = { id: held.id, count: 1 };
+      if (--held.count <= 0) held = null;
+    } else if (slot.id === held.id && slot.count < STACK_MAX) {
+      slot.count++;
+      if (--held.count <= 0) held = null;
+    }
+  } else {
+    if (!held) {
+      if (!slot) return;
+      held = slot; arr[i] = null;
+    } else if (!slot) {
+      arr[i] = held; held = null;
+    } else if (slot.id === held.id) {
+      const add = Math.min(STACK_MAX - slot.count, held.count);
+      slot.count += add; held.count -= add;
+      if (held.count <= 0) held = null;
+    } else {
+      arr[i] = held; held = slot;
+    }
+  }
+  refreshUI();
+}
+function clickArmorSlot(i) {
+  const slot = armor[i];
+  const wantId = ARMOR_SLOT_ITEM[i];
+  if (!held) {
+    if (!slot) return;
+    held = slot; armor[i] = null;
+  } else if (held.id !== wantId) {
+    return;                                    // このスロットには対応する部位しか置けない
+  } else if (!slot) {
+    armor[i] = held; held = null;
+  } else {
+    armor[i] = held; held = slot;
+  }
+  refreshUI();
+}
+function openChest(x, y, z) {
+  chestAt(x, y, z, true);
+  openChestKey = chestKey(x, y, z);
+  setInv(true);
+}
+
+let toastTimer = 0;
+function showToast(text) {
+  toastEl.textContent = text;
+  toastEl.style.opacity = "1";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.style.opacity = "0"; }, 1300);
+}
+
+// Pointer Lock API が使えない環境（サンドボックス化された iframe など）でも
+// プレイできるように、失敗時は「ドラッグで視点操作」に自動的に切り替える。
+// これによりクロスヘア（照準）が出ない／操作できない問題を回避する。
+let usingFallbackControls = false;
+let dragLook = false;
+let fbEdgeX = null, fbEdgeY = null;
+function applyPlayUI() {
+  overlay.style.display = (locked || invOpen) ? "none" : "flex";
+  crosshair.style.display = locked ? "block" : "none";
+  hotbarEl.style.display = (locked || invOpen) ? "flex" : "none";
+  heartsEl.style.display = (locked || invOpen) ? "flex" : "none";
+  hudEl.style.display = locked ? "block" : "none";
+  biomeEl.style.display = locked ? "block" : "none";
+  // 本物の Pointer Lock が使えない環境でもマイクラと同じ見た目にするため、
+  // プレイ中はカーソルを見た目上も消す（本物の Pointer Lock 中はブラウザが自動で消す）
+  document.body.style.cursor = locked ? "none" : "";
+}
+function tryEnterGame() {
+  usingFallbackControls = false;
+  let requested = false;
+  try {
+    const p = canvas.requestPointerLock();
+    requested = true;
+    if (p && typeof p.catch === "function") {
+      p.catch(() => { enterFallbackControls(); });
+    }
+  } catch (err) { /* 下の保険タイマーで拾う */ }
+  // pointerlockchange も pointerlockerror も来ない環境向けの保険
+  setTimeout(() => {
+    if (!invOpen && document.pointerLockElement !== canvas && !usingFallbackControls) {
+      enterFallbackControls();
+    }
+  }, 350);
+}
+function enterFallbackControls() {
+  if (invOpen) return;
+  usingFallbackControls = true;
+  locked = true;
+  fbEdgeX = null; fbEdgeY = null;
+  applyPlayUI();
+  showToast("マウス/タッチパッドを動かして視点操作");
+}
+// フォールバック操作（本物の Pointer Lock が使えない環境）専用：カーソルが画面のふちに
+// 張り付いている間だけ、ゆっくり回転を足し続ける。これにより、ふちで movementX/Y が
+// 出なくなったあとも押さえ続ければ振り向く（後ろを向く）ことができる。
+// 画面の中ほどでの普段の視点操作（mousemove の直接反映）にはいっさい影響しない。
+function applyEdgeTurn(dt) {
+  if (!usingFallbackControls || !locked || invOpen || fbEdgeX === null) return;
+  const EDGE = 6, RATE = 1.5;   // ラジアン/秒
+  const w = window.innerWidth, h = window.innerHeight;
+  if (fbEdgeX <= EDGE) player.yaw += RATE * dt;
+  else if (fbEdgeX >= w - 1 - EDGE) player.yaw -= RATE * dt;
+  if (fbEdgeY <= EDGE) player.pitch += RATE * dt * 0.6;
+  else if (fbEdgeY >= h - 1 - EDGE) player.pitch -= RATE * dt * 0.6;
+  const lim = Math.PI / 2 - 0.001;
+  player.pitch = Math.max(-lim, Math.min(lim, player.pitch));
+}
+function setInv(open) {
+  invOpen = open;
+  invEl.style.display = open ? "flex" : "none";
+  if (open) {
+    for (const k in keys) keys[k] = false;
+    locked = false;
+    usingFallbackControls = false;
+    dragLook = false;
+    if (document.pointerLockElement) document.exitPointerLock();
+    renderInv();
+  } else {
+    if (held) { addItem(held.id, held.count); held = null; }
+    for (let i = 0; i < 9; i++) if (craft[i]) { addItem(craft[i].id, craft[i].count); craft[i] = null; }
+    craftSize = 2;
+    openChestKey = null;
+    chestWrapEl.style.display = "none";
+    heldEl.style.display = "none";
+    tryEnterGame();
+  }
+  applyPlayUI();
+}
+
+document.querySelectorAll("#genderSel .gsel").forEach(btn => {
+  btn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    playerVariant = +btn.dataset.g;
+    document.querySelectorAll("#genderSel .gsel").forEach(b => b.classList.toggle("active", b === btn));
+  });
+});
+let selectedMode = "survival";
+let gameStarted = false;
+document.querySelectorAll("#modeSel .gsel").forEach(btn => {
+  btn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    selectedMode = btn.dataset.m;
+    document.querySelectorAll("#modeSel .gsel").forEach(b => b.classList.toggle("active", b === btn));
+  });
+});
+overlay.addEventListener("click", () => {
+  if (!gameStarted) { gameStarted = true; setGameMode(selectedMode); }   // 初期画面で選んだモードを開始時に適用
+  tryEnterGame();
+});
+document.addEventListener("pointerlockchange", () => {
+  if (document.pointerLockElement === canvas) {
+    usingFallbackControls = false;
+    locked = true;
+    applyPlayUI();
+  } else if (locked && !usingFallbackControls) {
+    // 本物の Pointer Lock が外れた（Esc など）
+    locked = false;
+    for (const k in keys) keys[k] = false; mouseDown = false; dragLook = false; resetMining();
+    applyPlayUI();
+  }
+});
+document.addEventListener("pointerlockerror", () => {
+  enterFallbackControls();      // ロックが使えない環境 → ドラッグ操作に切り替えてそのままプレイ続行
+});
+document.addEventListener("mousemove", (e) => {
+  if (invOpen) {
+    heldEl.style.left = e.clientX + "px";
+    heldEl.style.top = e.clientY + "px";
+    return;
+  }
+  if (!locked) return;
+  // 本物の Pointer Lock が使えない環境（フォールバック）でも、クリック／ドラッグ不要で
+  // マウス・タッチパッドを動かすだけで視点が動く（マイクラと同じ操作感にする）
+  const s = 0.0022;
+  player.yaw -= e.movementX * s;
+  player.pitch -= e.movementY * s;
+  const lim = Math.PI / 2 - 0.001;
+  player.pitch = Math.max(-lim, Math.min(lim, player.pitch));
+  if (usingFallbackControls) {
+    // フォールバック中は OS のカーソルが画面のふちで止まってしまい、それ以上は
+    // movementX/Y が出なくなる（＝後ろを向けない）。ふちに張り付いたことだけ覚えておき、
+    // 毎フレーム edgeTurn() でその間だけゆっくり回転を足す（普段の動きの感触はそのまま）
+    fbEdgeX = e.clientX; fbEdgeY = e.clientY;
+  }
+});
+document.addEventListener("mouseup", (e) => {
+  if (e.button === 0) mouseDown = false;
+  if (e.button === 2 && bowCharge !== null) { shootArrow(); bowCharge = null; }
+  dragLook = false;
+});
+window.addEventListener("blur", () => { mouseDown = false; dragLook = false; bowCharge = null; });
+document.addEventListener("mousedown", (e) => {
+  if (!locked || invOpen) return;
+  if (usingFallbackControls) dragLook = true;      // フォールバック操作中はどのボタンでもドラッグで視点操作
+  if (e.button === 0) { if (!primaryAction()) mouseDown = true; }
+  else if (e.button === 2) {
+    const st = inv[selIdx];
+    if (st && st.id === ITEM_BOW && hasArrow()) { bowCharge = performance.now(); return; }
+    const eggType = st ? SPAWN_EGG_MOB[st.id] : undefined;
+    if (eggType) {
+      const hit = raycast(5.5);
+      if (hit) {
+        spawnMob(eggType, hit.x + hit.nx + 0.5, hit.y + hit.ny, hit.z + hit.nz + 0.5);
+        if (gameMode !== "creative") takeSelected();
+        startSwing();
+      }
+      return;
+    }
+    const hit = raycast(5.5);
+    if (hit && hit.block === CHEST) openChest(hit.x, hit.y, hit.z);
+    else if (hit && hit.block === TABLE) { craftSize = 3; setInv(true); }
+    else if (!eatSelected()) { placeBlock(); startSwing(); }
+  }
+});
+document.addEventListener("contextmenu", (e) => e.preventDefault());
+document.addEventListener("keydown", (e) => {
+  if (e.code === "KeyV" || e.code === "F5") {
+    // F5 はブラウザによってはページ再読み込みに奪われてしまうため、
+    // 確実に効く V キーを正式な視点切り替えキーにする（移動中・カーソル非表示中でも常に反応する）
+    viewMode = (viewMode + 1) % 3;
+    showToast(["一人称", "三人称（背面）", "三人称（正面）"][viewMode]);
+    e.preventDefault(); return;
+  }
+  if (e.code === "KeyE") { setInv(!invOpen); e.preventDefault(); return; }
+  if (e.code === "Escape" && invOpen) { setInv(false); return; }
+  if (e.code === "KeyG" && !invOpen) {
+    setGameMode(gameMode === "creative" ? "survival" : "creative");
+    e.preventDefault(); return;
+  }
+  if (e.code === "Space" && locked && !invOpen && gameMode === "creative" && !keys["Space"]) {
+    const now = performance.now();
+    if (now - lastSpaceTime < 300) {
+      player.flying = !player.flying;
+      if (player.flying) player.vy = 0;
+      showToast(player.flying ? "飛行 ON" : "飛行 OFF");
+    }
+    lastSpaceTime = now;
+  }
+  keys[e.code] = true;
+  if (e.code === "Space") e.preventDefault();
+  const m = /^Digit([1-9])$/.exec(e.code);
+  if (m) { selIdx = +m[1] - 1; renderHotbar(); }
+});
+document.addEventListener("keyup", (e) => { keys[e.code] = false; });
+document.addEventListener("wheel", (e) => {
+  if (!locked || invOpen) return;
+  selIdx = (selIdx + (e.deltaY > 0 ? 1 : -1) + 9) % 9;
+  renderHotbar();
+}, { passive: true });
+
+renderHotbar();
+
+/* ============================================================
+   15. 描画ループ
+   ============================================================ */
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.floor(canvas.clientWidth * dpr), h = Math.floor(canvas.clientHeight * dpr);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+}
+window.addEventListener("resize", resize);
+
+gl.enable(gl.DEPTH_TEST);
+gl.enable(gl.CULL_FACE);
+gl.cullFace(gl.BACK);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+const FOG_FAR = RENDER_DIST * CH_X - 6;
+const FOG_NEAR = FOG_FAR * 0.55;
+
+let last = performance.now(), clock = 0;
+let fps = 0, fpsAcc = 0, fpsT = 0;
+let biomeTimer = 0, lastBiome = "";
+
+function drawMobs() {
+  const LR = sky.lightRGB;
+  for (const m of mobs) {
+    const d = MOBS[m.type];
+    const v = d.variants[m.variant] || d.variants[0];
+    if (m.hurt > 0) gl.uniform3f(U.tint, Math.min(2, LR[0] * 1.6 + 0.7), LR[1] * 0.5, LR[2] * 0.5);
+    else            gl.uniform3fv(U.tint, LR);
+
+    trsY(mD1, m.x, m.y, m.z, m.yaw, d.scale || 1);   // 体
+    if (m.dying > 0) {                               // ゆっくり横倒しになる
+      const t = 1 - m.dying / DEATH_TIME;
+      transRotZ(mD2, 0, 0, 0, t * t * (Math.PI / 2) * 0.94);
+      mul(mTmpA, mD1, mD2);
+    } else {
+      mTmpA.set(mD1);
+    }
+    gl.uniformMatrix4fv(U.model, false, mTmpA);
+    const bodyMesh = (m.blinking && v.blinkBody) ? v.blinkBody : v.body;
+    gl.bindVertexArray(bodyMesh.vao);
+    gl.drawElements(gl.TRIANGLES, bodyMesh.count, gl.UNSIGNED_INT, 0);
+
+    for (const limb of v.limbs) {                    // 手足・ひれ
+      const amp = limb.amp !== undefined ? limb.amp : (limb.base ? 0.22 : 0.55);
+      const walkScale = d.aquatic ? 1 : (m.walkAmp !== undefined ? m.walkAmp : 1);
+      const swing = Math.sin(m.walk + limb.phase) * amp * walkScale;
+      const px = limb.pivot[0]/16, py = limb.pivot[1]/16, pz = limb.pivot[2]/16;
+      if (limb.liftAmp) {                             // 水平に振りつつ、踏み出す側を持ち上げる
+        const lift = Math.max(0, Math.cos(m.walk + limb.phase)) * limb.liftAmp * walkScale;
+        transRotYX(mTmpB, px, py, pz, limb.base + swing, lift);
+      } else {
+        const rot = limb.axis === "y" ? transRotY : transRotX;
+        rot(mTmpB, px, py, pz, limb.base + swing);
+      }
+      mul(mTmpC, mTmpA, mTmpB);
+      gl.uniformMatrix4fv(U.model, false, mTmpC);
+      gl.bindVertexArray(limb.mesh.vao);
+      gl.drawElements(gl.TRIANGLES, limb.mesh.count, gl.UNSIGNED_INT, 0);
+
+      if (m.sword && limb.hand) {                       // 手に持った鉄の剣
+        const sm = extrudedMesh(ITEM_SWORD);
+        // 腕は前に伸びているので、その回転をいったん戻してから剣を立てる
+        transRotX(mH1, 0.04, -0.60, -0.10, -Math.PI / 2);
+        mul(mH2, mTmpC, mH1);
+        transRotZ(mH3, 0, 0, 0, 0.35);
+        mul(mH1, mH2, mH3);
+        scaleMat(mH3, 0.55);
+        mul(mH4, mH1, mH3);
+        gl.uniformMatrix4fv(U.model, false, mH4);
+        gl.bindVertexArray(sm.vao);
+        gl.drawElements(gl.TRIANGLES, sm.count, gl.UNSIGNED_INT, 0);
+      }
+    }
+  }
+  gl.uniform3fv(U.tint, LR);
+}
+
+/* 三人称のときに自分の体を描く */
+function drawPlayerModel() {
+  const v = PLAYER_MODELS[playerVariant];
+  const LR = sky.lightRGB;
+  gl.uniform3fv(U.tint, LR);
+  trsY(mD1, player.x, player.y, player.z, player.yaw, 0.9);
+  mTmpA.set(mD1);
+  gl.uniformMatrix4fv(U.model, false, mTmpA);
+  const bodyMesh = (playerBlinking && v.blinkBody) ? v.blinkBody : v.body;
+  gl.bindVertexArray(bodyMesh.vao);
+  gl.drawElements(gl.TRIANGLES, bodyMesh.count, gl.UNSIGNED_INT, 0);
+
+  const stack = inv[selIdx];
+  const arc = swingArc();
+  for (const limb of v.limbs) {
+    let swing = Math.sin(playerWalk + limb.phase) * 0.5;
+    if (limb.hand) swing = swing * (1 - arc) - arc * 2.0;        // 右腕は振り下ろす
+    transRotX(mTmpB, limb.pivot[0]/16, limb.pivot[1]/16, limb.pivot[2]/16, swing);
+    mul(mTmpC, mTmpA, mTmpB);
+    gl.uniformMatrix4fv(U.model, false, mTmpC);
+    gl.bindVertexArray(limb.mesh.vao);
+    gl.drawElements(gl.TRIANGLES, limb.mesh.count, gl.UNSIGNED_INT, 0);
+
+    if (limb.hand && stack) {                       // 右手に持ちもの
+      const solidItem = isItem(stack.id);
+      const mesh = isPlant(stack.id) ? flatMesh(stack.id) : itemMesh(stack.id);
+      transRotZ(mH1, 0.02, -0.62, -0.06, UPRIGHT_ITEMS[stack.id] ? -Math.PI / 4 : 0);
+      mul(mH2, mTmpC, mH1);
+      scaleMat(mH3, HELD_SCALE_3RD[stack.id] || (solidItem ? 0.55 : 0.42));
+      mul(mH4, mH2, mH3);
+      gl.uniformMatrix4fv(U.model, false, mH4);
+      if (!solidItem) gl.disable(gl.CULL_FACE);
+      gl.bindVertexArray(mesh.vao);
+      gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_INT, 0);
+      gl.enable(gl.CULL_FACE);
+    }
+  }
+}
+
+/* 手に持っているものを画面の右下に描く（歩くと揺れる） */
+let handBob = 0;
+const SWING_TIME = 0.30;
+let swingT = 0;                                   // 振り下ろしの残り時間
+function startSwing() { if (swingT <= 0.02) swingT = SWING_TIME; }
+function swingArc() {                             // 0 → 1 → 0 の山
+  if (swingT <= 0) return 0;
+  const prog = 1 - swingT / SWING_TIME;
+  return Math.sin(prog * Math.PI);
+}
+// まっすぐ縦に構える道具（刃が斜めに描かれているもの）
+const UPRIGHT_ITEMS = { [ITEM_SWORD]: 1, [ITEM_STICK]: 1, [ITEM_FEATHER]: 1, [ITEM_ARROW]: 1,
+                         [ITEM_PICKAXE]: 1, [ITEM_AXE]: 1, [ITEM_WOOD_SWORD]: 1 };  // 切っ先/刃が進行方向（上向き）を向くように立てて構える
+// 剣・弓は他の道具より大きく構える
+const HELD_SCALE_1ST = { [ITEM_SWORD]: 0.36, [ITEM_BOW]: 0.38 };
+const HELD_SCALE_3RD = { [ITEM_SWORD]: 0.78, [ITEM_BOW]: 0.82 };
+function drawHeldItem() {
+  const stack = inv[selIdx];
+  if (!stack) return;
+  const solidItem = isItem(stack.id);
+  const flat = isPlant(stack.id);
+  const mesh = flat ? flatMesh(stack.id) : itemMesh(stack.id);
+
+  const bx = Math.sin(handBob) * 0.030;
+  const by = -Math.abs(Math.cos(handBob)) * 0.024;
+  const roll = Math.sin(handBob) * 0.07;
+  const arc = swingArc();
+
+  // カメラ空間にそのまま置く（uView は単位行列にする）
+  if (stack.id === ITEM_SWORD) {
+    // 上から下へ振り下ろすチョップ動作（画面平面内で Z 軸回転させる）
+    translation(mH1, 0.47 + bx - arc * 0.03, -0.24 + by - arc * 0.16, -0.66 - arc * 0.06);
+    transRotZ(mH2, 0, 0, 0, Math.PI / 4 + roll * 0.5 - arc * 1.9);
+    mul(mH3, mH1, mH2);
+    transRotY(mH2, 0, 0, 0, 0.18);
+    mul(mH4, mH3, mH2);
+    scaleMat(mH2, HELD_SCALE_1ST[ITEM_SWORD]);
+    mul(mH3, mH4, mH2);
+  } else if (stack.id === ITEM_BOW) {
+    // 引き絞るほど顔の近くへ引き寄せる（引き絞りアニメーション）
+    const chargeT = bowCharge !== null ? bowChargeRatio() : 0;
+    translation(mH1, 0.47 + bx - arc * 0.05 - chargeT * 0.16,
+                     -0.26 + by - chargeT * 0.05,
+                     -0.66 + arc * 0.05 + chargeT * 0.24);
+    transRotZ(mH2, 0, 0, 0, roll * 0.5 - 0.12 - chargeT * 0.05);
+    mul(mH3, mH1, mH2);
+    transRotY(mH2, 0, 0, 0, 0.18 + chargeT * 0.10);
+    mul(mH4, mH3, mH2);
+    scaleMat(mH2, HELD_SCALE_1ST[ITEM_BOW]);
+    mul(mH3, mH4, mH2);
+  } else if (flat || solidItem) {
+    const upright = UPRIGHT_ITEMS[stack.id] ? Math.PI / 4 : 0;   // 斜めの絵を立てて縦に構える
+    translation(mH1, 0.47 + bx - arc * 0.07, -0.26 + by + arc * 0.06, -0.66 + arc * 0.13);
+    transRotX(mH2, 0, 0, 0, -arc * 1.55);                         // 振り下ろし
+    mul(mH3, mH1, mH2);
+    transRotZ(mH2, 0, 0, 0, upright + roll * 0.5 + (upright ? 0 : -0.12));
+    mul(mH4, mH3, mH2);
+    transRotY(mH2, 0, 0, 0, solidItem ? 0.18 : 0);
+    mul(mH3, mH4, mH2);
+    scaleMat(mH2, 0.26);
+    mul(mH3, mH3, mH2);
+  } else {
+    translation(mH1, 0.46 + bx - arc * 0.06, -0.28 + by + arc * 0.05, -0.70 + arc * 0.10);
+    transRotX(mH2, 0, 0, 0, -arc * 1.2);
+    mul(mH3, mH1, mH2);
+    transRotY(mH2, 0, 0, 0, -0.6 + roll * 0.5);
+    mul(mH4, mH3, mH2);
+    transRotX(mH2, 0, 0, 0, 0.22);
+    mul(mH3, mH4, mH2);
+    scaleMat(mH2, 0.17);
+    mul(mH3, mH3, mH2);
+  }
+
+  gl.clear(gl.DEPTH_BUFFER_BIT);                 // 地形に埋まらないように
+  gl.uniformMatrix4fv(U.view, false, MAT_ID);
+  gl.uniformMatrix4fv(U.model, false, mH3);
+  gl.uniform1f(U.fogNear, 1e6);
+  gl.uniform1f(U.fogFar, 1e7);
+  gl.uniform3fv(U.tint, sky.lightRGB);
+  gl.bindSampler(0, sharpSampler);
+  if (flat) gl.disable(gl.CULL_FACE);
+  gl.bindVertexArray(mesh.vao);
+  gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_INT, 0);
+  gl.enable(gl.CULL_FACE);
+  gl.bindSampler(0, null);
+  gl.bindVertexArray(null);
+  gl.uniformMatrix4fv(U.view, false, matView);
+}
+
+/* 太陽と月：カメラの方を向く板を、空の遠くに置く */
+function drawSkyBodies() {
+  const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  const rx = cy, ry = 0, rz = -sy;                       // カメラの右
+  const ux = sy * sp, uy = cp, uz = cy * sp;             // カメラの上
+  const ex = cam.x, ey = cam.y, ez = cam.z;
+
+  const place = (dir, size, mesh) => {
+    const D = 190;
+    const px = ex + dir[0] * D, py = ey + dir[1] * D, pz = ez + dir[2] * D;
+    const m = matModel;
+    m[0]=rx*size; m[1]=ry*size; m[2]=rz*size; m[3]=0;
+    m[4]=ux*size; m[5]=uy*size; m[6]=uz*size; m[7]=0;
+    m[8]=0; m[9]=0; m[10]=1; m[11]=0;
+    m[12]=px; m[13]=py; m[14]=pz; m[15]=1;
+    gl.uniformMatrix4fv(U.model, false, m);
+    gl.bindVertexArray(mesh.vao);
+    gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_INT, 0);
+  };
+
+  const s = sky.sunDir;
+  gl.uniform3f(U.tint, 1, 1, 1);
+  if (sky.sunAlt > -0.16) place(s, 42, sunMesh);                         // 太陽は昼だけ
+  if (sky.sunAlt < 0.16)  place([-s[0], -s[1], -s[2]], 34, moonMesh);    // 月は夜だけ
+}
+
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now; clock += dt;
+  resize();
+
+  updateSky(dt);
+  updateZombies(dt);
+  updateSpiders(dt);
+  updateHealth(dt);
+  updatePlayerBlink(dt);
+  updateLeafParticles(dt);
+  // サボテンダメージ（プレイヤーが隣接しているとき 0.5秒ごとに 1 ダメージ）
+  player._cactusCd = (player._cactusCd || 0) - dt;
+  if (player._cactusCd <= 0) {
+    const _px = Math.floor(player.x), _py = Math.floor(player.y + 0.5), _pz = Math.floor(player.z);
+    for (const [_dx, _dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      if (getBlock(_px+_dx, _py, _pz+_dz) === CACTUS ||
+          getBlock(_px+_dx, _py+1, _pz+_dz) === CACTUS) {
+        damagePlayer(1);
+        player._cactusCd = 0.5;
+        break;
+      }
+    }
+  }
+  if (swingT > 0) swingT = Math.max(0, swingT - dt);
+  updateMining(dt);
+  applyEdgeTurn(dt);
+  movePlayer(dt);
+  updateMobs(dt);
+  updateDrops(dt);
+  updateProjectiles(dt);
+
+  const pcx = Math.floor(player.x / CH_X), pcz = Math.floor(player.z / CH_Z);
+  let budget = 3;
+  const visible = [];
+  for (let dz = -RENDER_DIST; dz <= RENDER_DIST; dz++) {
+    for (let dx = -RENDER_DIST; dx <= RENDER_DIST; dx++) {
+      if (dx * dx + dz * dz > RENDER_DIST * RENDER_DIST + 1) continue;
+      const c = getChunk(pcx + dx, pcz + dz, true);
+      if (c.dirty && budget > 0) { buildMesh(c); budget--; }
+      if (c.built) {
+        visible.push(c);
+        if (!c.spawned && dx * dx + dz * dz > 4) trySpawnInChunk(c);
+      }
+    }
+  }
+  if ((now | 0) % 4 === 0) {
+    for (const [k, c] of chunks) {
+      if (Math.abs(c.cx - pcx) > RENDER_DIST + 3 || Math.abs(c.cz - pcz) > RENDER_DIST + 3) {
+        freeMesh(c.solid); freeMesh(c.plant); freeMesh(c.water);
+        chunks.delete(k);
+      }
+    }
+  }
+
+  // 水の中に目があるかどうかで空気の色を変える
+  const eyeInWater = isWater(getBlock(Math.floor(player.x), Math.floor(player.y + EYE), Math.floor(player.z)));
+  const lt = sky.light;
+  const fogCol = eyeInWater
+    ? [UNDERWATER_FOG[0] * lt, UNDERWATER_FOG[1] * lt, UNDERWATER_FOG[2] * lt]
+    : sky.color;
+  const fogNear = eyeInWater ? 0.2 : FOG_NEAR;
+  const fogFar  = eyeInWater ? 13 : FOG_FAR;
+
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.clearColor(fogCol[0], fogCol[1], fogCol[2], 1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  updateCamera();
+  playerWalk += Math.hypot(player.vx, player.vz) * dt * 2.6;
+  perspective(matProj, 70 * Math.PI / 180, canvas.width / canvas.height, 0.1, 400);
+  viewMatrix(matView, cam.x, cam.y, cam.z, cam.yaw, cam.pitch);
+
+  // 空のグラデーション（地平線が明るく、朝夕は太陽の方向が焼ける）
+  if (!eyeInWater) {
+    const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+    const cpp = Math.cos(cam.pitch), spp = Math.sin(cam.pitch);
+    gl.useProgram(progSky);
+    gl.uniform3f(US.right, cy, 0, -sy);
+    gl.uniform3f(US.up, sy * spp, cpp, cy * spp);
+    gl.uniform3f(US.fwd, -sy * cpp, spp, -cy * cpp);
+    gl.uniform1f(US.tanY, Math.tan(35 * Math.PI / 180));
+    gl.uniform1f(US.aspect, canvas.width / canvas.height);
+    gl.uniform3fv(US.top, new Float32Array(sky.top));
+    gl.uniform3fv(US.horizon, new Float32Array(sky.horizon));
+    gl.uniform3fv(US.glow, new Float32Array(SKY_GLOW));
+    gl.uniform1f(US.glowAmt, sky.glowAmt);
+    gl.uniform3fv(US.sunDir, new Float32Array(sky.sunDir));
+    gl.disable(gl.DEPTH_TEST);
+    gl.bindVertexArray(skyQuadVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.enable(gl.DEPTH_TEST);
+  }
+
+  gl.useProgram(progTerrain);
+  gl.uniformMatrix4fv(U.proj, false, matProj);
+  gl.uniformMatrix4fv(U.view, false, matView);
+  gl.uniform1i(U.tex, 0);
+  gl.uniform3fv(U.fogColor, fogCol);
+  gl.uniform1f(U.fogNear, fogNear);
+  gl.uniform1f(U.fogFar, fogFar);
+  gl.uniform1f(U.alpha, 1.0);
+  gl.uniform3fv(U.tint, sky.lightRGB);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, texArray);
+
+  // 松明の明かり：近くの松明を最大 MAX_LIGHTS 個までシェーダーに渡す
+  {
+    const cx = player.x, cy = player.y + EYE, cz = player.z;
+    lightCand.length = 0;
+    for (let i = 0; i < torches.length; i++) {
+      const t = torches[i];
+      const dx = t.x - cx, dy = t.y - cy, dz = t.z - cz;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < 24 * 24) lightCand.push(t, d2);
+    }
+    // 挿入ソート（数が少ないので十分速い）
+    for (let i = 2; i < lightCand.length; i += 2) {
+      const t = lightCand[i], d2 = lightCand[i + 1];
+      let j = i - 2;
+      while (j >= 0 && lightCand[j + 1] > d2) { lightCand[j + 2] = lightCand[j]; lightCand[j + 3] = lightCand[j + 1]; j -= 2; }
+      lightCand[j + 2] = t; lightCand[j + 3] = d2;
+    }
+    const nLights = Math.min(MAX_LIGHTS, lightCand.length / 2);
+    for (let i = 0; i < nLights; i++) {
+      const t = lightCand[i * 2];
+      lightBuf[i * 3] = t.x; lightBuf[i * 3 + 1] = t.y; lightBuf[i * 3 + 2] = t.z;
+    }
+    gl.uniform1i(U.lightCount, nLights);
+    if (nLights > 0) gl.uniform3fv(U.lightPos, lightBuf.subarray(0, nLights * 3));
+    gl.uniform3f(U.lightColor, 0.85, 0.50, 0.18);
+  }
+
+  // 0) 太陽と月（いちばん奥、霧の影響を受けない）
+  if (!eyeInWater) {
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.bindSampler(0, sharpSampler);
+    gl.uniform1f(U.fogNear, 1e6);
+    gl.uniform1f(U.fogFar, 1e7);
+    drawSkyBodies();
+    gl.uniform1f(U.fogNear, fogNear);
+    gl.uniform1f(U.fogFar, fogFar);
+    gl.bindSampler(0, null);
+    gl.uniform3fv(U.tint, sky.lightRGB);
+    gl.enable(gl.DEPTH_TEST);
+  }
+
+  // 1) 不透明なブロック
+  gl.enable(gl.CULL_FACE);
+  let tris = 0;
+  for (const c of visible) {
+    if (!c.solid.count) continue;
+    translation(matModel, c.cx * CH_X, 0, c.cz * CH_Z);
+    gl.uniformMatrix4fv(U.model, false, matModel);
+    gl.bindVertexArray(c.solid.vao);
+    gl.drawElements(gl.TRIANGLES, c.solid.count, gl.UNSIGNED_INT, 0);
+    tris += c.solid.count / 3;
+  }
+
+  // 2) モブ
+  gl.bindSampler(0, sharpSampler);
+  drawMobs();
+  if (viewMode !== 0) drawPlayerModel();
+
+  // 3) 植物と落下アイテム（両面）
+  gl.disable(gl.CULL_FACE);
+  for (const c of visible) {
+    if (!c.plant.count) continue;
+    translation(matModel, c.cx * CH_X, 0, c.cz * CH_Z);
+    gl.uniformMatrix4fv(U.model, false, matModel);
+    gl.bindVertexArray(c.plant.vao);
+    gl.drawElements(gl.TRIANGLES, c.plant.count, gl.UNSIGNED_INT, 0);
+    tris += c.plant.count / 3;
+  }
+  for (const it of drops) {
+    const m = itemMesh(it.id);
+    const bob = Math.sin(clock * 2.4 + it.phase) * 0.05;
+    trsY(matModel, it.x, it.y + 0.22 + bob, it.z, clock * 1.5 + it.phase, 0.3);
+    gl.uniformMatrix4fv(U.model, false, matModel);
+    gl.bindVertexArray(m.vao);
+    gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);
+  }
+  drawLeafParticles();
+  drawProjectiles();
+  gl.bindSampler(0, null);
+
+  // 4) 雲（ゆっくり流れる）。遠くまで見えるよう、雲だけ霧を薄くする
+  gl.enable(gl.CULL_FACE);
+  gl.enable(gl.BLEND);
+  gl.depthMask(false);
+  if (!eyeInWater) {
+    gl.uniform1f(U.alpha, 0.85);
+    gl.uniform1f(U.fogNear, 150);
+    gl.uniform1f(U.fogFar, 330);
+    const windX = clock * 0.55;
+    const tx = windX + CLOUD_SPAN * Math.round((player.x - windX) / CLOUD_SPAN);
+    const tz = CLOUD_SPAN * Math.round(player.z / CLOUD_SPAN);
+    translation(matModel, tx, CLOUD_Y, tz);
+    gl.uniformMatrix4fv(U.model, false, matModel);
+    gl.bindVertexArray(cloudMesh.vao);
+    gl.drawElements(gl.TRIANGLES, cloudMesh.count, gl.UNSIGNED_INT, 0);
+    gl.uniform1f(U.fogNear, fogNear);
+    gl.uniform1f(U.fogFar, fogFar);
+  }
+
+  // 5) 水（半透明・両面）
+  gl.disable(gl.CULL_FACE);
+  gl.uniform1f(U.alpha, 0.72);
+  for (const c of visible) {
+    if (!c.water.count) continue;
+    translation(matModel, c.cx * CH_X, 0, c.cz * CH_Z);
+    gl.uniformMatrix4fv(U.model, false, matModel);
+    gl.bindVertexArray(c.water.vao);
+    gl.drawElements(gl.TRIANGLES, c.water.count, gl.UNSIGNED_INT, 0);
+    tris += c.water.count / 3;
+  }
+  gl.uniform1f(U.alpha, 1.0);
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
+  gl.enable(gl.CULL_FACE);
+  gl.bindVertexArray(null);
+
+  // 6) 照準先の枠
+  const hit = (locked && !invOpen) ? raycast(5.5) : null;
+  if (hit) {
+    gl.useProgram(progLine);
+    gl.uniformMatrix4fv(UL.proj, false, matProj);
+    gl.uniformMatrix4fv(UL.view, false, matView);
+    gl.uniform3f(UL.offset, hit.x, hit.y, hit.z);
+    gl.bindVertexArray(boxVao);
+    gl.drawArrays(gl.LINES, 0, 24);
+    gl.bindVertexArray(null);
+  }
+
+  // 7) 手に持っているもの
+  if (locked && !invOpen && viewMode === 0) {
+    handBob += Math.hypot(player.vx, player.vz) * dt * 2.4;
+    gl.useProgram(progTerrain);
+    gl.uniformMatrix4fv(U.proj, false, matProj);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, texArray);
+    gl.uniform1f(U.alpha, 1.0);
+    drawHeldItem();
+  }
+
+  fpsAcc++; fpsT += dt;
+  if (fpsT >= 0.5) { fps = Math.round(fpsAcc / fpsT); fpsAcc = 0; fpsT = 0; }
+  if (locked) {
+    biomeTimer -= dt;
+    if (biomeTimer <= 0) {
+      biomeTimer = 0.4;
+      const b = biomeAt(Math.floor(player.x), Math.floor(player.z));
+      if (b !== lastBiome) { lastBiome = b; biomeEl.textContent = b; }
+    }
+  }
+  if (locked) {
+    hudEl.textContent =
+      `FPS ${fps}　${gameMode === "creative" ? "クリエイティブ" + (player.flying ? "（飛行）" : "") : "サバイバル"}\n` +
+      `XYZ ${player.x.toFixed(1)} / ${player.y.toFixed(1)} / ${player.z.toFixed(1)}` +
+      (player.inWater ? "  (水中)" : "") + "\n" +
+      `時刻 ${timeLabel()}  （1 周 ${DAY_LENGTH / 60} 分）` +
+      (player.boost > 0 ? `  回復UP ${player.boost.toFixed(0)}秒` : "") + "\n" +
+      `シード ${WORLD_SEED}\n` +
+      `チャンク ${visible.length}  三角形 ${tris | 0}\n` +
+      `生き物 ${mobs.length}  アイテム ${drops.length}`;
+  }
+
+  requestAnimationFrame(frame);
+}
+
+/* 初期地点に宝箱を置き、中に鉄の剣と矢を入れておく */
+(function placeStartChest() {
+  let bx = SPAWN_PT.x + 2, bz = SPAWN_PT.z;
+  for (let i = 0; i < 24; i++) {                 // 陸地を探す
+    const x = SPAWN_PT.x + 2 + (i % 5) - 2, z = SPAWN_PT.z + ((i / 5) | 0) - 2;
+    if (terrainHeight(x, z) >= WATER_LEVEL && !(x === SPAWN_PT.x && z === SPAWN_PT.z)) { bx = x; bz = z; break; }
+  }
+  const by = terrainHeight(bx, bz) + 1;
+  setBlock(bx, by, bz, CHEST);
+  const _c = chestAt(bx, by, bz, true);
+  _c[0] = { id: ITEM_SWORD, count: 1 };
+  _c[1] = { id: ITEM_ARROW, count: STACK_MAX };   // 矢を 1 スタック
+  player.yaw = Math.atan2(-(bx + 0.5 - player.x), -(bz + 0.5 - player.z));   // 宝箱の方を向いて始める
+  window.__startChest = { x: bx, y: by, z: bz };
+})();
+
+resize();
+requestAnimationFrame(frame);
+
+// 自動テスト用
+window.__mc = {
+  player, keys, inv, drops, mobs, MOBS, WATER_LEVEL, ATTACK_DAMAGE, SEAGRASS,
+  PLAYER_MAX_HP, REGEN_FULL_SEC, DAY_LENGTH, sky, ZOMBIE_SKINS, MAX_ZOMBIES,
+  getBlock, setBlock, terrainHeight, plantAt, chunks, raycast, raycastMob,
+  mineBlock, placeBlock, addItem, primaryAction, attackMob, spawnMob,
+  damagePlayer, timeLabel, cloudMesh, sunMesh, moonMesh, CLOUD_Y, CLOUD_SPAN,
+  chests, chestAt, chestKey, openChest, currentDamage,
+  ITEM_SWORD, SWORD_DAMAGE, CHEST, CORNFLOWER, DANDELION, POPPY, TALLGRASS,
+  breakTime, mining, updateMining, drawHeldItem, eatSelected, finishDeath,
+  LOG, LEAVES, PLANKS, ITEM_STICK, ITEM_APPLE, treeAt, forestAt, blockDrop,
+  craft, craftResult, takeCraft, currentDamage, PLAYER_SKINS, TABLE, RECIPES, startSwing,
+  get craftSize() { return craftSize; }, set craftSize(v) { craftSize = v; },
+  get swingT() { return swingT; },
+  get viewMode() { return viewMode; }, set viewMode(v) { viewMode = v; },
+  get playerVariant() { return playerVariant; }, set playerVariant(v) { playerVariant = v; },
+  ITEM_FEATHER, ITEM_PORK, WORLD_SEED, DEATH_TIME, PORK_BOOST_SEC, PORK_BOOST_MUL,
+  get mouseDown() { return mouseDown; }, set mouseDown(v) { mouseDown = v; },
+  get locked() { return locked; }, set locked(v) { locked = v; },
+  get selIdx() { return selIdx; }, set selIdx(v) { selIdx = v; renderHotbar(); },
+  get dayTime() { return dayTime; }, set dayTime(v) { dayTime = v; },
+  SAND, CACTUS, SWORD_MAX_USES, desertAt,
+  ITEM_LEATHER, T_PIG_SNOUT, T_COW_SNOUT, T_LEATHER, MOB_DROPS, setGameMode,
+  get gameMode() { return gameMode; }, set gameMode(v) { gameMode = v; },
+  armor, ARMOR_SLOT_ITEM, totalDefense, clickArmorSlot, cactusWants,
+  ITEM_HELMET, ITEM_CHESTPLATE, ITEM_LEGGINGS, ITEM_BOOTS, ARMOR_DEFENSE, DEFENSE_CUT_PER_POINT,
+  ITEM_STRING, ITEM_BOW, ITEM_ARROW, BOW_MIN_DMG, BOW_MAX_DMG, BOW_MAX_CHARGE_SEC,
+  ARROW_SPEED, ARROW_GRAVITY, projectiles, updateProjectiles, drawProjectiles,
+  hasArrow, consumeArrow, shootArrow, bowChargeRatio, findArrowSlot,
+  get bowCharge() { return bowCharge; }, set bowCharge(v) { bowCharge = v; },
+  ITEM_EGG_PIG, ITEM_EGG_COW, ITEM_EGG_CHICKEN, ITEM_EGG_ZOMBIE, ITEM_EGG_SPIDER, ITEM_EGG_GOLDFISH,
+  SPAWN_EGG_MOB, CREATIVE_KIT, HELD_SCALE_1ST, HELD_SCALE_3RD,
+  get usingFallbackControls() { return usingFallbackControls; },
+  get dragLook() { return dragLook; }, set dragLook(v) { dragLook = v; },
+  AIR, COAL_ORE, TORCH, ITEM_COAL, ITEM_SQUID, ITEM_EGG_SQUID, ITEM_EGG_SHARK,
+  SQUID_HEAL, TORCH_LIGHT_RADIUS, isDeepOcean, isSkyExposed, continentAt, noise3,
+  torches, nearTorch, addTorch, removeTorch, SPAWN_PT, findLandSpawn,
+  updateZombies, updateSpiders, updateMobs, trySpawnInChunk,
+  get zombieTimer() { return zombieTimer; }, set zombieTimer(v) { zombieTimer = v; },
+  get spiderTimer() { return spiderTimer; }, set spiderTimer(v) { spiderTimer = v; },
+  ITEM_PICKAXE, ITEM_AXE, ITEM_WOOD_SWORD, PICKAXE_DAMAGE, AXE_DAMAGE, WOOD_SWORD_DAMAGE,
+  PICKAXE_BLOCKS, AXE_BLOCKS, TOOL_MINE_SPEED, miningSpeedMul, TOOL_ITEMS,
+  leafParticles, updateLeafParticles,
+  get playerBlinking() { return playerBlinking; }, set playerBlinking(v) { playerBlinking = v; },
+  KELP, caveEntranceCenterDist, caveEntranceOpenAt,
+  enterFallbackControls, applyEdgeTurn,
+  get fbEdgeX() { return fbEdgeX; }, set fbEdgeX(v) { fbEdgeX = v; },
+  get fbEdgeY() { return fbEdgeY; }, set fbEdgeY(v) { fbEdgeY = v; },
+};
+
+})();
+</script>
+</body>
+</html>
